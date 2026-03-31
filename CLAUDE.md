@@ -54,6 +54,8 @@ Every issue should include:
 - Use one branch per issue
 - Keep PRs focused
 - Prefer draft PRs while scope is still moving
+- Use a separate worktree for each PR so we can work simultaneously on
+  different issues
 
 ## Git Worktrees
 
