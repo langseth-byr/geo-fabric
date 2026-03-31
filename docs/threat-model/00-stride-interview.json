@@ -1,0 +1,749 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "2.0",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-03-31T00:00:00Z",
+    "tools": [
+      {
+        "name": "STRIDE Threat Modeling Interview",
+        "version": "1.0"
+      }
+    ],
+    "notes": "Autonomous STRIDE analysis based on architecture documentation. No interactive interview conducted."
+  },
+  "modelTypes": ["threat"],
+  "methodologies": ["STRIDE"],
+  "participants": {
+    "roles": ["Security Architect (AI-assisted analysis)"],
+    "coverageNotes": "Single-perspective analysis from security architecture viewpoint. No developer, operations, business stakeholder, or GIS domain expert input. Coverage gaps exist in: operational risk assessment, business impact calibration, GIS-specific attack technique knowledge, and deployment-specific threat identification."
+  },
+  "assets": [
+    {"id": "stride-frontend", "name": "React + MapLibre GL JS Frontend", "type": "application"},
+    {"id": "stride-api", "name": "GraphQL API (Strawberry/FastAPI)", "type": "application"},
+    {"id": "stride-martin", "name": "Martin Tile Server", "type": "application"},
+    {"id": "stride-pgbouncer", "name": "PgBouncer", "type": "infrastructure"},
+    {"id": "stride-postgis", "name": "PostGIS Database", "type": "dataStore"},
+    {"id": "stride-redis", "name": "Redis", "type": "dataStore"},
+    {"id": "stride-celery", "name": "Celery Workers", "type": "application"},
+    {"id": "stride-duckdb", "name": "DuckDB (within Celery workers)", "type": "library"},
+    {"id": "stride-object-storage", "name": "Object Storage", "type": "dataStore"},
+    {"id": "stride-cdn", "name": "CDN / Edge Cache", "type": "infrastructure"},
+    {"id": "stride-gdal", "name": "GDAL/OGR via Fiona", "type": "library"},
+    {"id": "stride-shapely", "name": "Shapely / GEOS", "type": "library"},
+    {"id": "stride-pyproj", "name": "pyproj / PROJ", "type": "library"}
+  ],
+  "actors": [
+    {"id": "stride-actor-user", "name": "End User (Browser)", "trustLevel": "untrusted"},
+    {"id": "stride-actor-api-client", "name": "API Consumer (Programmatic)", "trustLevel": "untrusted"},
+    {"id": "stride-actor-attacker", "name": "External Attacker", "trustLevel": "untrusted", "type": "threatAgent", "motivation": "Data theft, service disruption, resource abuse, or lateral movement"},
+    {"id": "stride-actor-insider", "name": "Malicious Insider", "trustLevel": "trusted", "type": "threatAgent", "motivation": "Data exfiltration, sabotage, or unauthorized access escalation"}
+  ],
+  "zones": [
+    {"id": "stride-zone-untrusted", "name": "Internet", "assets": ["stride-frontend"]},
+    {"id": "stride-zone-edge", "name": "Edge/CDN", "assets": ["stride-cdn"]},
+    {"id": "stride-zone-app", "name": "Application", "assets": ["stride-api", "stride-martin"]},
+    {"id": "stride-zone-data", "name": "Data", "assets": ["stride-postgis", "stride-redis", "stride-object-storage", "stride-pgbouncer"]},
+    {"id": "stride-zone-proc", "name": "Processing", "assets": ["stride-celery", "stride-duckdb", "stride-gdal", "stride-shapely", "stride-pyproj"]}
+  ],
+  "threats": [
+    {
+      "id": "S-01",
+      "title": "No authentication architecture — all endpoints accessible to anonymous users",
+      "strideCategory": "Spoofing",
+      "severity": "Critical",
+      "likelihood": "High",
+      "impact": "Critical",
+      "description": "No authentication mechanism is specified anywhere in the architecture. The GraphQL API accepts queries and mutations — including dataset upload and deletion — from any network client without identity verification. An attacker can upload malicious datasets, query all stored data, and delete datasets without attribution.",
+      "affectedAssets": ["stride-api"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Implement OAuth2/OIDC with a proven identity provider (Auth0, Keycloak, or cloud-native)",
+        "Require authentication on all GraphQL mutations",
+        "Require authentication on sensitive queries (dataset listing, feature queries)",
+        "Consider allowing anonymous read-only access to public datasets only"
+      ],
+      "residualRisk": "Low — standard auth implementation addresses this fully"
+    },
+    {
+      "id": "S-02",
+      "title": "No service-to-service authentication between internal components",
+      "strideCategory": "Spoofing",
+      "severity": "High",
+      "likelihood": "Low",
+      "impact": "High",
+      "description": "No mTLS, shared secrets, or service mesh authentication is specified between API, Martin, PgBouncer, Redis, or Celery. If an attacker gains access to the internal network (via container escape, SSRF, or compromised dependency), they can impersonate any service.",
+      "affectedAssets": ["stride-api", "stride-martin", "stride-pgbouncer", "stride-redis", "stride-celery"],
+      "existingControls": ["Docker Compose network isolation (dev only)"],
+      "recommendedMitigations": [
+        "Use password authentication for PostgreSQL connections through PgBouncer",
+        "Enable Redis AUTH",
+        "Consider mTLS or service mesh for production deployment",
+        "Use separate database credentials per service with least-privilege grants"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "S-03",
+      "title": "GraphQL introspection exposes full API schema to unauthenticated clients",
+      "strideCategory": "Spoofing",
+      "severity": "Medium",
+      "likelihood": "High",
+      "impact": "Medium",
+      "description": "GraphQL introspection is enabled by default in Strawberry. Without explicit disabling, any client can query __schema to discover all types, queries, mutations, and fields — providing a detailed reconnaissance map for attackers.",
+      "affectedAssets": ["stride-api"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Disable GraphQL introspection in production",
+        "If introspection is needed for tooling, restrict to authenticated admin users",
+        "Implement persisted queries to limit query shapes"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "S-04",
+      "title": "No API key or token management for programmatic access",
+      "strideCategory": "Spoofing",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "No mechanism exists for API consumers to authenticate programmatically. Without API keys, tokens, or client certificates, there is no way to identify, rate-limit, or revoke programmatic clients independently from browser users.",
+      "affectedAssets": ["stride-api"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Implement API key issuance and validation for programmatic clients",
+        "Support bearer token authentication (JWT or opaque tokens)",
+        "Implement per-key rate limiting and usage tracking",
+        "Provide key revocation capability"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "T-01",
+      "title": "Malicious GeoJSON properties enable stored XSS in frontend",
+      "strideCategory": "Tampering",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "GeoJSON feature properties are arbitrary JSON objects stored verbatim in PostGIS and rendered in the frontend feature inspector. An attacker uploads a GeoJSON file where property values contain HTML or JavaScript payloads. When another user inspects these features on the map, the payload executes in their browser.",
+      "affectedAssets": ["stride-frontend", "stride-api", "stride-postgis"],
+      "existingControls": [
+        "React JSX auto-escaping (partial — does not cover dangerouslySetInnerHTML or href attributes)"
+      ],
+      "recommendedMitigations": [
+        "Sanitize all feature property values at ingestion time — strip HTML tags and script content",
+        "Never use dangerouslySetInnerHTML to render feature properties",
+        "Implement Content Security Policy (CSP) to mitigate XSS impact",
+        "Encode property values when rendering in DOM attributes (href, src, style)"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "T-02",
+      "title": "Shapefile ZIP archive path traversal writes files outside extraction directory",
+      "strideCategory": "Tampering",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "Shapefiles are distributed as ZIP archives. A crafted ZIP with entries like '../../etc/cron.d/backdoor' or '../../app/config.py' could write files anywhere on the filesystem accessible to the extraction process, potentially overwriting application code or configuration.",
+      "affectedAssets": ["stride-api", "stride-celery", "stride-object-storage"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'Prevent path traversal during archive extraction'",
+        "INITIAL-PLAN.md: 'Handle archive extraction carefully for Shapefile uploads'"
+      ],
+      "recommendedMitigations": [
+        "Validate all ZIP entry paths before extraction — reject entries containing '..' or absolute paths",
+        "Use Python's zipfile module with explicit path joining and canonicalization",
+        "Extract to an isolated temporary directory with restricted permissions",
+        "Validate extracted files match expected Shapefile structure before processing"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "T-03",
+      "title": "No integrity verification on files between storage and processing",
+      "strideCategory": "Tampering",
+      "severity": "Medium",
+      "likelihood": "Low",
+      "impact": "Medium",
+      "description": "After upload, raw files are stored in object storage and later read by Celery workers for ingestion. If object storage is compromised or a race condition exists, the file processed may differ from what was uploaded. No checksums or integrity verification is documented.",
+      "affectedAssets": ["stride-object-storage", "stride-celery"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Compute and store SHA-256 hash at upload time",
+        "Verify hash before processing in Celery worker",
+        "Store hash in dataset record in PostGIS"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "T-04",
+      "title": "Redis without AUTH allows cache poisoning and job manipulation",
+      "strideCategory": "Tampering",
+      "severity": "High",
+      "likelihood": "Low",
+      "impact": "High",
+      "description": "Redis serves as both query cache and Celery broker. Without authentication, any process on the network can: (1) poison cached query results to serve incorrect spatial data, (2) inject malicious Celery tasks, (3) modify pending task arguments, (4) flush the entire cache causing a thundering herd on PostGIS.",
+      "affectedAssets": ["stride-redis", "stride-celery", "stride-api"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Enable Redis AUTH with a strong password",
+        "Use Redis ACLs to separate cache and broker access patterns",
+        "Bind Redis to localhost or internal network only",
+        "Monitor Redis for unexpected command patterns"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "T-05",
+      "title": "No TLS between internal services — data modifiable in transit",
+      "strideCategory": "Tampering",
+      "severity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "description": "Inter-service communication (API to PostgreSQL, Martin to PostgreSQL, API to Redis, Celery to Redis) uses unencrypted protocols. An attacker with network access can modify SQL queries, spatial data, or cache contents in transit.",
+      "affectedAssets": ["stride-api", "stride-martin", "stride-pgbouncer", "stride-redis", "stride-celery"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Enable TLS for all PostgreSQL connections",
+        "Enable TLS for Redis connections",
+        "Use encrypted overlay networks in production (Docker Swarm encrypted overlay, Kubernetes network policies with encryption)"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "T-06",
+      "title": "Crafted GeoParquet payloads exploit DuckDB Arrow/Parquet parser",
+      "strideCategory": "Tampering",
+      "severity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "description": "DuckDB processes GeoParquet files using native Arrow/Parquet parsers within the Celery worker process. Crafted Parquet files with malformed column metadata, invalid compression blocks, or oversized allocations could trigger buffer overflows or denial of service in the native parser.",
+      "affectedAssets": ["stride-duckdb", "stride-celery"],
+      "existingControls": [
+        "ARCHITECTURE.md: DuckDB for batch only, never for serving"
+      ],
+      "recommendedMitigations": [
+        "Validate GeoParquet file structure (magic bytes, schema) before DuckDB processing",
+        "Run DuckDB processing in resource-limited subprocesses",
+        "Set DuckDB memory_limit and threads configuration",
+        "Keep DuckDB updated — monitor for security advisories"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "R-01",
+      "title": "No audit logging — dataset operations are unattributable",
+      "strideCategory": "Repudiation",
+      "severity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "description": "No audit logging architecture is specified. Dataset uploads, deletions, modifications, and queries cannot be attributed to a specific user. Without audit trails, security incidents cannot be investigated, regulatory compliance (if required) cannot be demonstrated, and malicious actions cannot be traced.",
+      "affectedAssets": ["stride-api", "stride-celery", "stride-postgis"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'Structured logging: Use structured log fields (JSON)' — but this covers operational logging, not security audit trails"
+      ],
+      "recommendedMitigations": [
+        "Implement security audit logging for: authentication events, dataset CRUD operations, spatial query execution, admin actions, and failed authorization attempts",
+        "Include in audit records: timestamp, user identity, action, resource, source IP, outcome (success/failure)",
+        "Store audit logs in append-only storage separate from application logs",
+        "Define audit log retention period"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "R-02",
+      "title": "No request-level logging with user identity correlation",
+      "strideCategory": "Repudiation",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "Application logging does not include user identity. Even once authentication exists, if request logs do not correlate each request to the authenticated user, tracing malicious activity to a specific account is impossible.",
+      "affectedAssets": ["stride-api"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md mandates structured JSON logging"
+      ],
+      "recommendedMitigations": [
+        "Include authenticated user ID in all structured log entries",
+        "Add request correlation IDs to trace requests across services",
+        "Log GraphQL operation names for query identification"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "R-03",
+      "title": "Celery task execution not logged with initiator identity",
+      "strideCategory": "Repudiation",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "Background Celery tasks process datasets but the initiating user is not tracked in the task context. If a malicious dataset is processed, identifying who uploaded it requires correlating across multiple systems without a direct link.",
+      "affectedAssets": ["stride-celery"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Pass user identity as a task argument or header",
+        "Log task start, completion, and failure with initiator identity",
+        "Include dataset_id and user_id in all task-related log entries"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "I-01",
+      "title": "GraphQL error messages expose internal details",
+      "strideCategory": "InformationDisclosure",
+      "severity": "Medium",
+      "likelihood": "High",
+      "impact": "Medium",
+      "description": "Without explicit error handling configuration, Strawberry/FastAPI may return detailed error messages including Python tracebacks, internal file paths, database schema details, and SQL query fragments. These details aid attackers in mapping the internal architecture.",
+      "affectedAssets": ["stride-api"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'Record failures without exposing internal paths or stack traces to users'",
+        "CODING-CONVENTIONS.md: Domain-specific exceptions with FastAPI exception handlers"
+      ],
+      "recommendedMitigations": [
+        "Configure Strawberry to mask error details in production (return generic error messages)",
+        "Implement custom GraphQL error formatter that logs full details server-side but returns sanitized messages to clients",
+        "Disable debug mode in production FastAPI configuration"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "I-02",
+      "title": "Database credentials exposed via connection strings in configuration or logs",
+      "strideCategory": "InformationDisclosure",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "Critical",
+      "description": "PostgreSQL connection strings containing credentials may appear in: environment variables visible in process listings, Docker Compose files committed to version control, application logs during connection errors, or Celery task metadata.",
+      "affectedAssets": ["stride-api", "stride-celery", "stride-pgbouncer", "stride-postgis"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'No secrets or credentials in code. Use environment variables or a secrets manager.'",
+        "CODING-CONVENTIONS.md: 'Safe logging — no internal paths, credentials, or PII in log output.'"
+      ],
+      "recommendedMitigations": [
+        "Use a secrets manager instead of environment variables for production",
+        "Configure SQLAlchemy to redact connection strings in logs",
+        "Audit all log configurations to ensure credentials are never logged",
+        "Use separate PostgreSQL users per service with minimal grants"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "I-03",
+      "title": "Object storage URLs or paths may leak raw uploaded files",
+      "strideCategory": "InformationDisclosure",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "Raw uploaded files are stored in object storage. If the storage URLs are predictable, presigned URLs have long expiration times, or storage bucket permissions are misconfigured, attackers can access raw files directly, bypassing API access controls.",
+      "affectedAssets": ["stride-object-storage"],
+      "existingControls": [
+        "INITIAL-PLAN.md: 'Keep raw uploads outside the web root'"
+      ],
+      "recommendedMitigations": [
+        "Use non-predictable storage paths (include random UUIDs)",
+        "Configure object storage with private-only access — no public read",
+        "If using presigned URLs, set short expiration times (minutes, not hours)",
+        "Proxy file downloads through the API server with authentication checks"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "I-04",
+      "title": "Martin serves all PostGIS spatial data without access controls",
+      "strideCategory": "InformationDisclosure",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "Martin reads directly from PostGIS and serves vector tiles for any configured layer. There are no row-level security policies, no layer-level access controls, and no authentication on the tile endpoint. Any user (or CDN cache) can request tiles for any dataset.",
+      "affectedAssets": ["stride-martin", "stride-postgis", "stride-cdn"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Configure Martin to serve only specific tables/layers — not schema-wide",
+        "Use a read-only PostgreSQL user for Martin with SELECT on spatial_feature only",
+        "Implement PostGIS row-level security if datasets have different access levels",
+        "Proxy tile requests through authenticated API or use signed tile URLs"
+      ],
+      "residualRisk": "Medium — some spatial data may be intentionally public"
+    },
+    {
+      "id": "I-05",
+      "title": "Feature properties may contain sensitive source data",
+      "strideCategory": "InformationDisclosure",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "GIS datasets often contain attribute data in feature properties — field owner names, parcel IDs, land use classifications, yield data, etc. These properties are stored as JSON and served via GraphQL and tile attributes without filtering. Sensitive source attributes are exposed to all users.",
+      "affectedAssets": ["stride-postgis", "stride-api", "stride-martin"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Allow dataset owners to mark properties as sensitive/private",
+        "Filter property fields in API responses based on user authorization",
+        "Strip sensitive properties from tile attributes served by Martin",
+        "Document which property fields are included in tile attributes"
+      ],
+      "residualRisk": "Medium"
+    },
+    {
+      "id": "I-06",
+      "title": "DuckDB query errors expose internal file paths and schema",
+      "strideCategory": "InformationDisclosure",
+      "severity": "Low",
+      "likelihood": "Medium",
+      "impact": "Low",
+      "description": "DuckDB error messages include file paths, table names, and column details. If these errors propagate to API responses or logs, they reveal internal storage structure.",
+      "affectedAssets": ["stride-duckdb", "stride-celery"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: safe logging principles"
+      ],
+      "recommendedMitigations": [
+        "Catch DuckDB exceptions in worker code and log details server-side only",
+        "Return generic processing error messages to users"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "D-01",
+      "title": "GraphQL query depth and complexity abuse",
+      "strideCategory": "DenialOfService",
+      "severity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "description": "Without enforced depth and complexity limits, an attacker can craft deeply nested GraphQL queries or queries that resolve cartesian products across related entities (e.g., dataset -> features -> dataset -> features). A single malicious query can consume all API server memory and CPU, or generate expensive PostGIS queries.",
+      "affectedAssets": ["stride-api", "stride-postgis"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md mentions GraphQL depth and complexity limits as a convention"
+      ],
+      "recommendedMitigations": [
+        "Implement Strawberry query depth validation middleware (max depth 10)",
+        "Implement cost-based query complexity analysis with configurable limits",
+        "Set per-query timeout (e.g., 30 seconds)",
+        "Implement query result size limits",
+        "Consider persisted queries in production"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "D-02",
+      "title": "Unlimited file upload size enables resource exhaustion",
+      "strideCategory": "DenialOfService",
+      "severity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "description": "An attacker uploads extremely large files (multi-GB) to exhaust disk space on the API server and object storage, memory during parsing, or processing time in Celery workers. The CODING-CONVENTIONS.md mentions ASGI-layer size limits but no specific limits are defined.",
+      "affectedAssets": ["stride-api", "stride-object-storage", "stride-celery"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'Enforce size limits at the ASGI layer'"
+      ],
+      "recommendedMitigations": [
+        "Configure Uvicorn/FastAPI maximum request body size (e.g., 500MB for large GIS files)",
+        "Implement streaming upload processing — do not buffer entire files in memory",
+        "Set per-user upload quotas",
+        "Monitor disk usage and alert on rapid growth"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "D-03",
+      "title": "Expensive spatial operations on large polygon datasets",
+      "strideCategory": "DenialOfService",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "Spatial operations (ST_Intersection, ST_Union, ST_Buffer) on polygons with 50,000+ vertices are CPU-intensive. A crafted query that triggers intersection of millions of high-vertex polygons could consume all PostGIS CPU and memory for minutes or hours, blocking other queries.",
+      "affectedAssets": ["stride-postgis", "stride-celery", "stride-api"],
+      "existingControls": [
+        "ARCHITECTURE.md: Run large polygon ops in Celery workers with timeouts",
+        "ARCHITECTURE.md: Pre-simplify where appropriate"
+      ],
+      "recommendedMitigations": [
+        "Set PostgreSQL statement_timeout for API queries (e.g., 30 seconds)",
+        "Route expensive spatial operations to Celery workers with hard time limits",
+        "Implement geometry complexity limits — reject or simplify polygons exceeding vertex thresholds for interactive queries",
+        "Use PostGIS query cost estimation to reject overly expensive queries"
+      ],
+      "residualRisk": "Medium — some legitimate queries on large datasets will be expensive"
+    },
+    {
+      "id": "D-04",
+      "title": "Zip bomb in Shapefile archive exhausts disk and memory",
+      "strideCategory": "DenialOfService",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "A crafted ZIP archive with high compression ratio (zip bomb) could expand from megabytes to gigabytes or terabytes when extracted, filling disk space and potentially crashing the extraction process. Nested ZIP archives amplify this further.",
+      "affectedAssets": ["stride-api", "stride-celery", "stride-object-storage"],
+      "existingControls": [
+        "INITIAL-PLAN.md: 'Enforce upload size limits'"
+      ],
+      "recommendedMitigations": [
+        "Check ZIP compression ratio before extraction — reject ratios above threshold (e.g., 100:1)",
+        "Set maximum total extraction size limit",
+        "Extract in a temporary directory with filesystem quotas",
+        "Limit the number of entries in a ZIP archive (Shapefiles typically have 4-7 files)",
+        "Do not follow nested ZIP archives"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "D-05",
+      "title": "Tile request flooding bypasses CDN cache",
+      "strideCategory": "DenialOfService",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "An attacker requests tiles at many unique z/x/y coordinates that are not in the CDN cache. Each cache miss reaches Martin, which queries PostGIS. High-zoom tile requests for sparse data areas generate many PostGIS queries returning empty results, consuming database connections and CPU.",
+      "affectedAssets": ["stride-cdn", "stride-martin", "stride-postgis"],
+      "existingControls": [
+        "CDN caching absorbs repeat requests"
+      ],
+      "recommendedMitigations": [
+        "Implement rate limiting on tile requests at the CDN or Martin level",
+        "Restrict tile requests to valid zoom ranges per layer",
+        "Pre-generate tiles for common zoom levels",
+        "Configure Martin to limit concurrent PostGIS queries"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "D-06",
+      "title": "PgBouncer connection pool exhaustion",
+      "strideCategory": "DenialOfService",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "PgBouncer has a finite connection pool. If an attacker holds many long-running queries open simultaneously (via GraphQL queries triggering expensive spatial operations), the pool can be exhausted, denying database access to all legitimate requests.",
+      "affectedAssets": ["stride-pgbouncer", "stride-postgis", "stride-api", "stride-martin"],
+      "existingControls": [
+        "PgBouncer connection pooling limits total connections"
+      ],
+      "recommendedMitigations": [
+        "Configure PgBouncer server_idle_timeout and query_wait_timeout",
+        "Set per-pool limits for different services (API, Martin, Celery)",
+        "Implement PostgreSQL statement_timeout to release long-running query connections",
+        "Monitor connection pool usage and alert on exhaustion"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "D-07",
+      "title": "Celery worker starvation from long-running tasks",
+      "strideCategory": "DenialOfService",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "A crafted dataset with millions of high-vertex polygons can cause ingestion tasks to run for hours, occupying all Celery worker slots. Legitimate ingestion tasks queue indefinitely, and the system appears non-responsive.",
+      "affectedAssets": ["stride-celery"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'Explicit timeout on every task (soft_time_limit, time_limit)'"
+      ],
+      "recommendedMitigations": [
+        "Configure soft_time_limit and time_limit on every Celery task",
+        "Use separate Celery queues for quick tasks vs. long-running processing",
+        "Implement task priority so small datasets are not blocked by large ones",
+        "Monitor Celery queue depth and worker utilization"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "D-08",
+      "title": "DuckDB disk space exhaustion during larger-than-memory processing",
+      "strideCategory": "DenialOfService",
+      "severity": "Low",
+      "likelihood": "Low",
+      "impact": "Medium",
+      "description": "DuckDB's larger-than-memory streaming uses temporary files on disk. Processing a very large GeoParquet file could fill the disk on the Celery worker node, affecting other services sharing the same filesystem.",
+      "affectedAssets": ["stride-duckdb", "stride-celery"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Configure DuckDB temp_directory to a dedicated partition with quotas",
+        "Set DuckDB max_memory to limit spill behavior",
+        "Monitor disk usage on worker nodes"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "D-09",
+      "title": "ReDoS via crafted attribute filter expressions",
+      "strideCategory": "DenialOfService",
+      "severity": "Medium",
+      "likelihood": "Low",
+      "impact": "Medium",
+      "description": "If the API supports user-defined filter expressions on feature attributes (e.g., regex-based text matching), crafted regular expressions can cause catastrophic backtracking, consuming CPU for extended periods.",
+      "affectedAssets": ["stride-api", "stride-postgis"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Do not allow user-supplied regular expressions in attribute filters",
+        "If regex is needed, use RE2 or similar linear-time regex engine",
+        "Implement query timeout as a safety net",
+        "Restrict filter expressions to simple equality, range, and LIKE operators"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "E-01",
+      "title": "No authorization model — all users have equal access to all data",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "Critical",
+      "likelihood": "High",
+      "impact": "Critical",
+      "description": "No authorization model exists. Once authentication is implemented, all authenticated users will have identical access — any user can view, modify, and delete any dataset. There is no dataset ownership, no role-based access control, and no admin role separation.",
+      "affectedAssets": ["stride-api", "stride-postgis"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Design and implement an authorization model: at minimum, dataset-level ownership (only owner can update/delete)",
+        "Add user_id/owner_id foreign key to the dataset table",
+        "Implement role-based access control: at least 'user' and 'admin' roles",
+        "Enforce authorization checks in GraphQL resolvers — not just at the route level",
+        "Write authorization integration tests for every mutation"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "E-02",
+      "title": "No admin/user role separation",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "description": "No administrative role or privileged operations are defined. Operations that should be admin-only (user management, system configuration, bulk deletion, viewing all datasets) are not distinguished from regular user operations.",
+      "affectedAssets": ["stride-api"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Define admin-only operations and protect them with role checks",
+        "Implement role assignment and management",
+        "Log all admin actions to the audit trail",
+        "Consider separate admin API endpoint or admin GraphQL schema"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "E-03",
+      "title": "Celery workers run with API-level database privileges",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "description": "Celery workers likely use the same database credentials as the API server, granting full read/write access to all tables. If a worker is compromised (e.g., via crafted file exploiting a native library), the attacker gains full database access.",
+      "affectedAssets": ["stride-celery", "stride-postgis"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Create a separate PostgreSQL user for Celery workers with minimal required grants",
+        "Workers need: INSERT on spatial_feature, UPDATE on dataset and ingestion_run, SELECT on dataset",
+        "Workers should NOT have: DROP, ALTER, DELETE on dataset (unless processing requires it), or access to any future auth tables"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "E-04",
+      "title": "Compromised Martin instance reads all spatial data",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "description": "Martin has direct PostGIS read access. If Martin is compromised (e.g., via a vulnerability in the Rust binary or misconfiguration), the attacker can read all spatial data in PostGIS — not just tile-relevant data.",
+      "affectedAssets": ["stride-martin", "stride-postgis"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Create a read-only PostgreSQL user for Martin with SELECT on spatial data tables only",
+        "Do not grant Martin access to metadata tables, ingestion tables, or any future auth tables",
+        "Keep Martin updated to latest version",
+        "Monitor Martin for unexpected query patterns"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "E-05",
+      "title": "Native C/C++ library exploitation via crafted GIS input leads to code execution",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "High",
+      "likelihood": "Low",
+      "impact": "Critical",
+      "description": "GDAL/OGR (C/C++), GEOS (C++), and PROJ (C) process untrusted GIS data. These libraries have had historical CVEs for buffer overflows, use-after-free, and integer overflows. A crafted input file could achieve remote code execution within the Celery worker process, which has database access and filesystem access.",
+      "affectedAssets": ["stride-gdal", "stride-shapely", "stride-pyproj", "stride-celery"],
+      "existingControls": [
+        "CODING-CONVENTIONS.md: 'Safely parse GIS formats (isolate native tooling in subprocesses)'"
+      ],
+      "recommendedMitigations": [
+        "Run all GIS parsing in isolated subprocesses with resource limits",
+        "Use seccomp/AppArmor profiles to restrict subprocess capabilities",
+        "Run GIS processing in dedicated containers with minimal privileges and no network access",
+        "Keep GDAL, GEOS, PROJ updated and monitor their CVE feeds",
+        "Consider running workers in gVisor or similar sandbox"
+      ],
+      "residualRisk": "Medium — native library vulnerabilities are discovered periodically"
+    },
+    {
+      "id": "E-06",
+      "title": "No per-user resource quotas",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "description": "No per-user limits on uploads, storage, processing time, or API calls. A single user (or attacker) can consume all system resources — disk space via uploads, CPU via processing, database via large datasets — preventing other users from using the system.",
+      "affectedAssets": ["stride-api", "stride-celery", "stride-object-storage", "stride-postgis"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Implement per-user upload quotas (count and total size)",
+        "Implement per-user concurrent processing limits",
+        "Implement per-user API rate limits",
+        "Monitor resource usage per user and alert on anomalies"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "E-07",
+      "title": "Celery pickle deserialization enables remote code execution",
+      "strideCategory": "ElevationOfPrivilege",
+      "severity": "High",
+      "likelihood": "Low",
+      "impact": "Critical",
+      "description": "Celery's default serializer is pickle, which deserializes arbitrary Python objects. If an attacker can inject messages into the Redis broker (see T-04), they can craft pickle payloads that execute arbitrary code on Celery workers upon deserialization.",
+      "affectedAssets": ["stride-celery", "stride-redis"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Set CELERY_TASK_SERIALIZER = 'json' and CELERY_ACCEPT_CONTENT = ['json']",
+        "Never use pickle serialization",
+        "Enable Celery message signing (CELERY_TASK_SERIALIZER_HEADERS)",
+        "Secure Redis with AUTH to prevent message injection"
+      ],
+      "residualRisk": "Low"
+    }
+  ],
+  "coverageGaps": [
+    {
+      "id": "cg-01",
+      "description": "No GIS domain expert input on GIS-specific attack vectors (crafted geometries, CRS manipulation, coordinate injection)",
+      "recommendedFollowUp": "Consult GIS/geospatial engineer for domain-specific threat assessment"
+    },
+    {
+      "id": "cg-02",
+      "description": "No operations/DevOps perspective on deployment-specific threats, monitoring gaps, or incident response",
+      "recommendedFollowUp": "Consult DevOps/SRE for infrastructure and deployment threat assessment"
+    },
+    {
+      "id": "cg-03",
+      "description": "No business stakeholder input on impact calibration — business value of different datasets, regulatory obligations, or acceptable risk levels",
+      "recommendedFollowUp": "Conduct business impact assessment with product owner"
+    },
+    {
+      "id": "cg-04",
+      "description": "No developer input on implementation-level concerns — framework-specific vulnerabilities, library defaults, and configuration pitfalls",
+      "recommendedFollowUp": "Review with development team during implementation"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "stride-assumption-01",
+      "description": "Analysis based on architecture documentation only — no implementation code exists to verify actual security posture"
+    },
+    {
+      "id": "stride-assumption-02",
+      "description": "Threat severity ratings assume the system will handle both public and private/proprietary GIS data. If only public data, information disclosure severity decreases."
+    },
+    {
+      "id": "stride-assumption-03",
+      "description": "The system is assumed to be internet-facing. If deployed as an internal-only tool, several spoofing and DoS threats decrease in likelihood."
+    }
+  ]
+}

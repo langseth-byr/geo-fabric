@@ -1,0 +1,858 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "2.0",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-03-31T00:00:00Z",
+    "tools": [
+      {"name": "Threat Model Consolidator", "version": "1.0"}
+    ],
+    "upstreamInputs": [
+      {"prompt": "05", "name": "Repository Threat Reconnaissance", "file": "05-repo-recon.json"},
+      {"prompt": "06", "name": "Document and Architecture Absorption", "file": "06-doc-absorption.json"},
+      {"prompt": "00", "name": "STRIDE Interview", "file": "00-stride-interview.json"}
+    ]
+  },
+  "modelTypes": ["architecture", "dataFlow", "threat", "risk"],
+  "methodologies": ["Automated Repository Analysis", "Document Analysis", "STRIDE"],
+  "assets": [
+    {
+      "id": "C-FRONTEND",
+      "name": "React + TypeScript + MapLibre GL JS Frontend",
+      "type": "application",
+      "description": "Browser-based SPA for map visualization, feature inspection, and dataset management. Optional deck.gl for advanced visualization.",
+      "technology": "React (TypeScript strict mode), MapLibre GL JS, ESLint + Prettier",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 2,
+      "zone": "Internet"
+    },
+    {
+      "id": "C-API",
+      "name": "GraphQL API Server (Strawberry / FastAPI)",
+      "type": "application",
+      "description": "Primary backend. ASGI framework hosting code-first GraphQL (Strawberry), multipart file uploads, Pydantic v2 validation. All data operations go through here.",
+      "technology": "Python 3.12+, FastAPI 0.115+, Strawberry 0.250+, Pydantic v2, Uvicorn",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 14,
+      "zone": "Application"
+    },
+    {
+      "id": "C-MARTIN",
+      "name": "Martin Vector Tile Server",
+      "type": "application",
+      "description": "Standalone Rust tile server from MapLibre team. Reads directly from PostGIS. Serves binary MVT tiles via REST: GET /{layer}/{z}/{x}/{y}.",
+      "technology": "Martin 0.15+ (Rust)",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 4,
+      "zone": "Application"
+    },
+    {
+      "id": "C-PGBOUNCER",
+      "name": "PgBouncer Connection Pooler",
+      "type": "infrastructure",
+      "description": "Multiplexes application connections to PostgreSQL. Required for 10K concurrent user scale.",
+      "technology": "PgBouncer 1.23+",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 2,
+      "zone": "Data"
+    },
+    {
+      "id": "C-POSTGIS",
+      "name": "PostGIS Spatial Database",
+      "type": "dataStore",
+      "description": "Primary spatial data store. Tables: dataset (metadata), feature (normalized polygons + properties as JSON), ingestion_run (processing records). SQLAlchemy 2.x + GeoAlchemy2 ORM. Alembic migrations.",
+      "technology": "PostgreSQL + PostGIS, SQLAlchemy 2.x, GeoAlchemy2 0.15+, Alembic",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "sensitiveData": ["source_filename", "raw_file_path", "feature properties (may contain PII or proprietary data)"],
+      "threatCount": 6,
+      "zone": "Data"
+    },
+    {
+      "id": "C-REDIS",
+      "name": "Redis Cache and Celery Broker",
+      "type": "dataStore",
+      "description": "Dual role: (1) cache for expensive spatial query results, (2) message broker and result backend for Celery. No authentication documented.",
+      "technology": "Redis",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 3,
+      "zone": "Data"
+    },
+    {
+      "id": "C-CELERY",
+      "name": "Celery Background Workers",
+      "type": "application",
+      "description": "Persistent background jobs: ingestion, spatial processing, exports. Uses Redis broker. Monitoring via Flower. DuckDB for batch processing within workers.",
+      "technology": "Celery 5.x",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 7,
+      "zone": "Processing"
+    },
+    {
+      "id": "C-DUCKDB",
+      "name": "DuckDB Spatial Processor",
+      "type": "library",
+      "description": "In-process batch spatial data processing within Celery workers. Larger-than-memory streaming. Native GeoParquet read/write. Batch only — never serving.",
+      "technology": "DuckDB 1.2+ with spatial extension",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 3,
+      "zone": "Processing"
+    },
+    {
+      "id": "C-OBJSTORE",
+      "name": "Object Storage",
+      "type": "dataStore",
+      "description": "Stores raw uploaded files with provenance. S3-compatible or local filesystem. Files kept outside web root.",
+      "technology": "S3-compatible or local filesystem",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 3,
+      "zone": "Data"
+    },
+    {
+      "id": "C-CDN",
+      "name": "CDN / Edge Cache",
+      "type": "infrastructure",
+      "description": "Edge caching for vector tile requests. Absorbs repeat tile requests from concurrent users.",
+      "technology": "CloudFront, Cloudflare, or similar",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 1,
+      "zone": "Edge"
+    },
+    {
+      "id": "C-GDAL",
+      "name": "GDAL/OGR (via Fiona)",
+      "type": "library",
+      "description": "Native C/C++ library for GIS format I/O. 200+ format support. Content-based format detection.",
+      "technology": "Fiona 1.10+ wrapping GDAL/OGR (C/C++)",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 2,
+      "zone": "Processing"
+    },
+    {
+      "id": "C-SHAPELY",
+      "name": "Shapely / GEOS",
+      "type": "library",
+      "description": "Geometry operations wrapping GEOS C++. Union, intersection, buffer, simplify, validate. Vectorized ufuncs. Releases GIL during C ops.",
+      "technology": "Shapely 2.x wrapping GEOS (C++)",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 1,
+      "zone": "Processing"
+    },
+    {
+      "id": "C-PYPROJ",
+      "name": "pyproj / PROJ",
+      "type": "library",
+      "description": "CRS detection, transformation, reprojection. Wraps native PROJ C library.",
+      "technology": "pyproj 3.7+ wrapping PROJ (C)",
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"],
+      "threatCount": 1,
+      "zone": "Processing"
+    }
+  ],
+  "actors": [
+    {
+      "id": "C-ACTOR-USER",
+      "name": "End User (Browser)",
+      "type": "person",
+      "trustLevel": "untrusted",
+      "capabilities": ["Upload datasets", "View maps", "Inspect features", "Filter by attributes", "Zoom/pan"],
+      "sources": ["05-repo-recon", "06-doc-absorption", "00-stride"]
+    },
+    {
+      "id": "C-ACTOR-APICLIENT",
+      "name": "API Consumer (Programmatic)",
+      "type": "system",
+      "trustLevel": "untrusted",
+      "sources": ["05-repo-recon", "00-stride"]
+    },
+    {
+      "id": "C-ACTOR-ADMIN",
+      "name": "Administrator (undefined)",
+      "type": "person",
+      "trustLevel": "unknown",
+      "notes": "No admin role or capabilities defined in any document",
+      "sources": ["05-repo-recon"]
+    },
+    {
+      "id": "C-ACTOR-ATTACKER",
+      "name": "External Attacker",
+      "type": "threatAgent",
+      "trustLevel": "untrusted",
+      "motivation": "Data theft, service disruption, resource abuse, lateral movement",
+      "sources": ["00-stride"]
+    },
+    {
+      "id": "C-ACTOR-INSIDER",
+      "name": "Malicious Insider",
+      "type": "threatAgent",
+      "trustLevel": "trusted",
+      "motivation": "Data exfiltration, sabotage, unauthorized access escalation",
+      "sources": ["00-stride"]
+    }
+  ],
+  "zones": [
+    {
+      "id": "C-ZONE-INTERNET",
+      "name": "Internet / Browser Zone",
+      "trustLevel": "untrusted",
+      "assets": ["C-FRONTEND"],
+      "controls": [],
+      "gaps": ["No client-side input validation architecture documented"]
+    },
+    {
+      "id": "C-ZONE-EDGE",
+      "name": "CDN / Edge Zone",
+      "trustLevel": "semi-trusted",
+      "assets": ["C-CDN"],
+      "controls": ["Tile response caching"],
+      "gaps": ["No CDN security configuration documented (WAF, DDoS protection, cache rules)"]
+    },
+    {
+      "id": "C-ZONE-APP",
+      "name": "Application Zone",
+      "trustLevel": "trusted",
+      "assets": ["C-API", "C-MARTIN"],
+      "controls": ["ASGI size limits (planned)", "GraphQL depth/complexity limits (planned)"],
+      "gaps": ["No authentication", "No authorization", "No rate limiting", "No CORS/CSP", "No TLS for internal connections"]
+    },
+    {
+      "id": "C-ZONE-DATA",
+      "name": "Data Zone",
+      "trustLevel": "trusted",
+      "assets": ["C-POSTGIS", "C-REDIS", "C-OBJSTORE", "C-PGBOUNCER"],
+      "controls": ["PgBouncer connection pooling", "Parameterized queries (planned)"],
+      "gaps": ["No encryption at rest", "No Redis AUTH", "No network segmentation", "No backup/recovery documented"]
+    },
+    {
+      "id": "C-ZONE-PROC",
+      "name": "Processing Zone",
+      "trustLevel": "trusted",
+      "assets": ["C-CELERY", "C-DUCKDB", "C-GDAL", "C-SHAPELY", "C-PYPROJ"],
+      "controls": ["Task timeouts (planned)", "Subprocess isolation for GIS (planned)"],
+      "gaps": ["Workers run with full DB privileges", "No sandboxing of native libraries", "Pickle serialization risk"]
+    }
+  ],
+  "threats": [
+    {
+      "id": "CT-01",
+      "title": "No authentication architecture — all endpoints accessible anonymously",
+      "unifiedSeverity": "Critical",
+      "likelihood": "High",
+      "impact": "Critical",
+      "riskScore": 10,
+      "strideCategory": "Spoofing",
+      "affectedAssets": ["C-API", "C-MARTIN", "C-FRONTEND"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-APP",
+      "description": "No authentication mechanism is specified in any document. All GraphQL mutations (upload, delete) and queries (dataset listing, feature data) are accessible to anonymous network clients. The Martin tile server serves tiles without authentication. This is the single largest security gap identified.",
+      "crossMethodologyConfirmation": ["RECON-01 (Repo Recon)", "DOC-T01 (Doc Absorption)", "S-01 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Design authentication architecture before implementation begins — add to ARCHITECTURE.md",
+        "Implement OAuth2/OIDC with a proven identity provider",
+        "Require authentication on all mutations and sensitive queries",
+        "Proxy tile requests through authenticated API, or implement signed tile URLs"
+      ],
+      "residualRisk": "Low after implementation"
+    },
+    {
+      "id": "CT-02",
+      "title": "No authorization model — all users have equal access to all data",
+      "unifiedSeverity": "Critical",
+      "likelihood": "High",
+      "impact": "Critical",
+      "riskScore": 10,
+      "strideCategory": "ElevationOfPrivilege",
+      "affectedAssets": ["C-API", "C-POSTGIS"],
+      "trustBoundary": "C-ZONE-APP internal",
+      "description": "No RBAC, ABAC, or ownership model is defined. The data model has no owner/user field. No admin role exists. Once authentication is added, all authenticated users will have identical access to all datasets and operations.",
+      "crossMethodologyConfirmation": ["RECON-02 (Repo Recon)", "DOC-T02 (Doc Absorption)", "E-01 (STRIDE)", "E-02 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Add owner_id/created_by to dataset model",
+        "Implement dataset-level ownership: only owner can update/delete",
+        "Define RBAC with at least user and admin roles",
+        "Enforce authorization in GraphQL resolvers"
+      ],
+      "residualRisk": "Low after implementation"
+    },
+    {
+      "id": "CT-03",
+      "title": "Native C/C++ library exploitation via crafted GIS input",
+      "unifiedSeverity": "High",
+      "likelihood": "Medium",
+      "impact": "Critical",
+      "riskScore": 8,
+      "strideCategory": "ElevationOfPrivilege",
+      "affectedAssets": ["C-GDAL", "C-SHAPELY", "C-PYPROJ", "C-CELERY"],
+      "trustBoundary": "C-ZONE-PROC (untrusted data entering native code)",
+      "description": "GDAL/OGR, GEOS, and PROJ are C/C++ libraries with historical CVEs for buffer overflows and memory corruption. Crafted GIS files could achieve code execution within Celery workers, which have database access. Multiple upstream sources confirm this threat and the planned subprocess isolation control.",
+      "crossMethodologyConfirmation": ["RECON-03 (Repo Recon)", "DOC-T03 (Doc Absorption)", "E-05 (STRIDE)"],
+      "existingControls": [
+        {"control": "Subprocess isolation for GIS parsing", "status": "Planned — documented in CODING-CONVENTIONS.md", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Implement subprocess isolation with resource limits (memory, CPU time, filesystem)",
+        "Apply seccomp/AppArmor profiles to GIS parsing subprocesses",
+        "Run GIS processing in dedicated containers with no network access",
+        "Monitor GDAL, GEOS, PROJ CVE feeds and update promptly"
+      ],
+      "residualRisk": "Medium — new CVEs are discovered periodically"
+    },
+    {
+      "id": "CT-04",
+      "title": "Shapefile ZIP archive path traversal",
+      "unifiedSeverity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "riskScore": 7,
+      "strideCategory": "Tampering",
+      "affectedAssets": ["C-API", "C-CELERY", "C-OBJSTORE"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-PROC",
+      "description": "Crafted ZIP archives with path traversal entries (../../) could write files outside the extraction directory. Both INITIAL-PLAN.md and CODING-CONVENTIONS.md acknowledge this risk.",
+      "crossMethodologyConfirmation": ["RECON-04 (Repo Recon)", "T-02 (STRIDE)"],
+      "existingControls": [
+        {"control": "Path traversal prevention", "status": "Planned — documented in both specs", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Validate all ZIP entry paths — reject '..' and absolute paths",
+        "Extract to isolated temp directory and validate before moving",
+        "Verify Shapefile-specific extensions only",
+        "Enforce maximum extraction size"
+      ],
+      "residualRisk": "Low after implementation"
+    },
+    {
+      "id": "CT-05",
+      "title": "Redis without authentication enables cache poisoning and task injection",
+      "unifiedSeverity": "High",
+      "likelihood": "Low",
+      "impact": "High",
+      "riskScore": 6,
+      "strideCategory": "Tampering",
+      "affectedAssets": ["C-REDIS", "C-CELERY", "C-API"],
+      "trustBoundary": "C-ZONE-APP -> C-ZONE-DATA",
+      "description": "Redis has no AUTH documented. Any network-accessible process can poison cached queries, inject Celery tasks, modify job state, or flush the cache. Combined with Celery pickle deserialization (CT-12), this enables remote code execution.",
+      "crossMethodologyConfirmation": ["RECON-05 (Repo Recon)", "T-04 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Enable Redis AUTH with strong password",
+        "Use Redis ACLs for role separation",
+        "Bind to internal interfaces only",
+        "Enable TLS for Redis connections in production"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-06",
+      "title": "GraphQL query depth/complexity abuse causes API and database DoS",
+      "unifiedSeverity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "riskScore": 8,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-API", "C-POSTGIS"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-APP",
+      "description": "Without enforced depth/complexity limits, deeply nested or cartesian-product GraphQL queries can exhaust API memory, CPU, and PostGIS connections. Documented as a convention but not implemented.",
+      "crossMethodologyConfirmation": ["RECON-07 (Repo Recon)", "D-01 (STRIDE)"],
+      "existingControls": [
+        {"control": "GraphQL depth/complexity limits", "status": "Convention — not enforced", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Implement Strawberry depth validation (max 10)",
+        "Implement cost-based complexity analysis",
+        "Set per-query timeout (30s)",
+        "Consider persisted queries in production"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-07",
+      "title": "Unlimited file upload size enables resource exhaustion",
+      "unifiedSeverity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "riskScore": 8,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-API", "C-OBJSTORE", "C-CELERY"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-APP",
+      "description": "No specific upload size limits are defined. ASGI-layer limits are mentioned as a convention. Multi-GB uploads exhaust disk, memory, and processing time.",
+      "crossMethodologyConfirmation": ["D-02 (STRIDE)"],
+      "existingControls": [
+        {"control": "ASGI size limits", "status": "Convention — no specific limit defined", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Configure specific maximum upload size (e.g., 500MB)",
+        "Implement streaming upload processing",
+        "Set per-user upload quotas",
+        "Monitor storage utilization"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-08",
+      "title": "Expensive spatial operations on large polygons cause database DoS",
+      "unifiedSeverity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "riskScore": 7,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-POSTGIS", "C-CELERY", "C-API"],
+      "trustBoundary": "C-ZONE-APP -> C-ZONE-DATA",
+      "description": "Spatial operations on 50K+ vertex polygons are CPU-intensive. ARCHITECTURE.md explicitly identifies this risk. Crafted queries or datasets could lock PostGIS for extended periods.",
+      "crossMethodologyConfirmation": ["DOC-T04 (Doc Absorption)", "D-03 (STRIDE)"],
+      "existingControls": [
+        {"control": "Celery workers with timeouts for large ops", "status": "Planned", "verified": false},
+        {"control": "Pre-simplification", "status": "Planned", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Set PostgreSQL statement_timeout for API queries",
+        "Route expensive operations to Celery with hard time limits",
+        "Implement geometry complexity limits for interactive queries",
+        "Use PostGIS cost estimation to reject overly expensive queries"
+      ],
+      "residualRisk": "Medium — legitimate large dataset queries are inherently expensive"
+    },
+    {
+      "id": "CT-09",
+      "title": "No rate limiting on any endpoint",
+      "unifiedSeverity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "riskScore": 8,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-API", "C-MARTIN", "C-POSTGIS"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-APP",
+      "description": "No rate limiting documented. Unlimited requests enable resource exhaustion, brute-force attacks (once auth exists), and API abuse.",
+      "crossMethodologyConfirmation": ["RECON-06 (Repo Recon)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Implement API-level rate limiting (per-IP and per-user)",
+        "Apply stricter limits to upload and processing endpoints",
+        "Use CDN-level rate limiting for tiles"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-10",
+      "title": "No TLS for inter-service communication",
+      "unifiedSeverity": "High",
+      "likelihood": "Low",
+      "impact": "High",
+      "riskScore": 5,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-API", "C-MARTIN", "C-PGBOUNCER", "C-REDIS", "C-CELERY"],
+      "trustBoundary": "C-ZONE-APP -> C-ZONE-DATA, C-ZONE-APP -> C-ZONE-PROC",
+      "description": "No TLS documented for internal connections. SQL queries, spatial data, cache contents, and task messages traverse the network in plaintext.",
+      "crossMethodologyConfirmation": ["RECON-09 (Repo Recon)", "T-05 (STRIDE)", "S-02 (STRIDE)"],
+      "existingControls": [
+        {"control": "Docker Compose network isolation", "status": "Dev only", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Enable TLS for PostgreSQL and Redis connections",
+        "Use encrypted overlay networks in production",
+        "Consider mTLS for service-to-service auth"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-11",
+      "title": "Martin serves all PostGIS data without access controls",
+      "unifiedSeverity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "riskScore": 7,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-MARTIN", "C-POSTGIS", "C-CDN"],
+      "trustBoundary": "C-ZONE-EDGE -> C-ZONE-APP -> C-ZONE-DATA",
+      "description": "Martin has direct, unrestricted PostGIS read access. No layer filtering, no row-level security, no authentication on tile endpoint. All spatial data is accessible via tile requests.",
+      "crossMethodologyConfirmation": ["RECON-08 (Repo Recon)", "I-04 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Configure Martin for specific layers only",
+        "Use read-only PostgreSQL user for Martin",
+        "Implement PostGIS row-level security for multi-tenant",
+        "Proxy tiles through authenticated API or use signed URLs"
+      ],
+      "residualRisk": "Medium"
+    },
+    {
+      "id": "CT-12",
+      "title": "Celery pickle deserialization enables remote code execution",
+      "unifiedSeverity": "High",
+      "likelihood": "Low",
+      "impact": "Critical",
+      "riskScore": 7,
+      "strideCategory": "ElevationOfPrivilege",
+      "affectedAssets": ["C-CELERY", "C-REDIS"],
+      "trustBoundary": "C-ZONE-DATA -> C-ZONE-PROC",
+      "description": "Celery defaults to pickle serialization. Combined with unauthenticated Redis (CT-05), an attacker who gains Redis access can inject pickle payloads for arbitrary code execution on workers.",
+      "crossMethodologyConfirmation": ["RECON-10 (Repo Recon)", "E-07 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Set CELERY_TASK_SERIALIZER = 'json' and CELERY_ACCEPT_CONTENT = ['json']",
+        "Enable Celery message signing",
+        "Secure Redis with AUTH (CT-05)"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-13",
+      "title": "Zip bomb in Shapefile archive exhausts disk and memory",
+      "unifiedSeverity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "riskScore": 7,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-API", "C-CELERY", "C-OBJSTORE"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-PROC",
+      "description": "High compression ratio ZIP archives expand to massive sizes on extraction, filling disk and crashing processes.",
+      "crossMethodologyConfirmation": ["D-04 (STRIDE)"],
+      "existingControls": [
+        {"control": "Upload size limits", "status": "Convention — not specific", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Check compression ratio before extraction (reject >100:1)",
+        "Set maximum total extraction size",
+        "Limit ZIP entry count (Shapefiles have 4-7 files)",
+        "Extract in quota-limited temp directory"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-14",
+      "title": "Stored XSS via malicious GeoJSON feature properties",
+      "unifiedSeverity": "High",
+      "likelihood": "Medium",
+      "impact": "High",
+      "riskScore": 7,
+      "strideCategory": "Tampering",
+      "affectedAssets": ["C-FRONTEND", "C-API", "C-POSTGIS"],
+      "trustBoundary": "C-ZONE-DATA -> C-ZONE-INTERNET (data stored from upload, rendered in browser)",
+      "description": "GeoJSON properties stored verbatim in PostGIS and rendered in frontend feature inspector. Malicious HTML/JS in properties executes in other users' browsers.",
+      "crossMethodologyConfirmation": ["RECON-13 (Repo Recon)", "T-01 (STRIDE)"],
+      "existingControls": [
+        {"control": "React JSX auto-escaping", "status": "Partial", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Sanitize feature properties at ingestion time",
+        "Never use dangerouslySetInnerHTML for properties",
+        "Implement CSP",
+        "Encode when rendering in DOM attributes"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-15",
+      "title": "No audit logging — security events unattributable",
+      "unifiedSeverity": "High",
+      "likelihood": "High",
+      "impact": "High",
+      "riskScore": 8,
+      "strideCategory": "Repudiation",
+      "affectedAssets": ["C-API", "C-CELERY", "C-POSTGIS"],
+      "trustBoundary": "All zones",
+      "description": "No audit logging architecture. Dataset operations, authentication events (once auth exists), and admin actions cannot be attributed or investigated.",
+      "crossMethodologyConfirmation": ["R-01 (STRIDE)", "DOC gap-08"],
+      "existingControls": [
+        {"control": "Structured JSON logging", "status": "Convention — operational not security audit", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Implement security audit logging for auth events, CRUD operations, admin actions",
+        "Include user identity, action, resource, IP, outcome in audit records",
+        "Store in append-only storage",
+        "Define retention period"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-16",
+      "title": "No CORS or CSP configuration",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "riskScore": 5,
+      "strideCategory": "Tampering",
+      "affectedAssets": ["C-API", "C-FRONTEND"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-APP",
+      "description": "No CORS or CSP headers documented. Any website can make cross-origin requests to the API. No CSP to mitigate XSS impact.",
+      "crossMethodologyConfirmation": ["RECON-11 (Repo Recon)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Configure strict CORS for frontend origin only",
+        "Implement CSP headers",
+        "Add security headers: X-Content-Type-Options, X-Frame-Options, HSTS"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-17",
+      "title": "GraphQL introspection exposes full schema",
+      "unifiedSeverity": "Medium",
+      "likelihood": "High",
+      "impact": "Medium",
+      "riskScore": 5,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-API"],
+      "trustBoundary": "C-ZONE-INTERNET -> C-ZONE-APP",
+      "description": "GraphQL introspection enabled by default in Strawberry. Provides complete API reconnaissance to attackers.",
+      "crossMethodologyConfirmation": ["S-03 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Disable introspection in production",
+        "Or restrict to authenticated admin users"
+      ],
+      "residualRisk": "Informational"
+    },
+    {
+      "id": "CT-18",
+      "title": "No encryption at rest for data stores",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "riskScore": 4,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-POSTGIS", "C-REDIS", "C-OBJSTORE"],
+      "trustBoundary": "C-ZONE-DATA",
+      "description": "No encryption at rest for any data store. All data on disk in plaintext.",
+      "crossMethodologyConfirmation": ["RECON-12 (Repo Recon)", "DOC gap-05"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Enable TDE or encrypted volumes for PostgreSQL",
+        "Enable S3 server-side encryption",
+        "Document encryption requirements"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-19",
+      "title": "Database credentials at risk of exposure",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Critical",
+      "riskScore": 6,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-API", "C-CELERY", "C-PGBOUNCER"],
+      "trustBoundary": "C-ZONE-APP, C-ZONE-PROC",
+      "description": "Connection strings with credentials may appear in env vars, Docker Compose files, logs, or Celery metadata.",
+      "crossMethodologyConfirmation": ["I-02 (STRIDE)", "RECON-18 (Repo Recon)"],
+      "existingControls": [
+        {"control": "No secrets in code, safe logging", "status": "Convention", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Use secrets manager for production",
+        "Configure SQLAlchemy to redact connection strings in logs",
+        "Audit all log output for credential leaks"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-20",
+      "title": "PgBouncer connection pool exhaustion",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "riskScore": 5,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-PGBOUNCER", "C-POSTGIS", "C-API", "C-MARTIN"],
+      "trustBoundary": "C-ZONE-APP -> C-ZONE-DATA",
+      "description": "Long-running spatial queries can hold PgBouncer connections, exhausting the pool for all services.",
+      "crossMethodologyConfirmation": ["D-06 (STRIDE)"],
+      "existingControls": [
+        {"control": "PgBouncer connection limits", "status": "Inherent to tool", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Configure per-pool limits per service",
+        "Set server_idle_timeout and query_wait_timeout",
+        "Implement PostgreSQL statement_timeout"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-21",
+      "title": "Celery workers run with full database privileges",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "riskScore": 4,
+      "strideCategory": "ElevationOfPrivilege",
+      "affectedAssets": ["C-CELERY", "C-POSTGIS"],
+      "trustBoundary": "C-ZONE-PROC -> C-ZONE-DATA",
+      "description": "Workers likely use same DB credentials as API. Compromised worker has full database access.",
+      "crossMethodologyConfirmation": ["E-03 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Create separate PostgreSQL user for workers with minimal grants",
+        "Restrict to INSERT/UPDATE on specific tables only"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-22",
+      "title": "DuckDB native parser risks on untrusted GeoParquet",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Low",
+      "impact": "High",
+      "riskScore": 4,
+      "strideCategory": "ElevationOfPrivilege",
+      "affectedAssets": ["C-DUCKDB", "C-CELERY"],
+      "trustBoundary": "C-ZONE-PROC",
+      "description": "DuckDB processes untrusted GeoParquet with native Arrow/Parquet parsers in-process. Crafted files could trigger parser vulnerabilities.",
+      "crossMethodologyConfirmation": ["RECON-16 (Repo Recon)", "T-06 (STRIDE)"],
+      "existingControls": [
+        {"control": "DuckDB batch only", "status": "Documented", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Validate GeoParquet structure before DuckDB processing",
+        "Run in resource-limited subprocesses",
+        "Keep DuckDB updated"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-23",
+      "title": "Tile request flooding bypasses CDN cache",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "riskScore": 5,
+      "strideCategory": "DenialOfService",
+      "affectedAssets": ["C-CDN", "C-MARTIN", "C-POSTGIS"],
+      "trustBoundary": "C-ZONE-EDGE -> C-ZONE-APP",
+      "description": "Unique z/x/y tile requests bypass CDN cache, hitting Martin and PostGIS directly.",
+      "crossMethodologyConfirmation": ["DOC-T05 (Doc Absorption)", "D-05 (STRIDE)"],
+      "existingControls": [
+        {"control": "CDN caching", "status": "Planned", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Rate limit tile requests at CDN/Martin level",
+        "Restrict zoom ranges per layer",
+        "Pre-generate common tiles"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-24",
+      "title": "Feature properties may expose sensitive source data",
+      "unifiedSeverity": "Medium",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "riskScore": 5,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-POSTGIS", "C-API", "C-MARTIN"],
+      "trustBoundary": "C-ZONE-DATA -> C-ZONE-INTERNET",
+      "description": "GIS datasets contain attribute data (owner names, parcel IDs, yield data). Stored and served without filtering.",
+      "crossMethodologyConfirmation": ["I-05 (STRIDE)"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Allow marking properties as sensitive",
+        "Filter properties in API responses based on authorization",
+        "Strip sensitive properties from tile attributes"
+      ],
+      "residualRisk": "Medium"
+    },
+    {
+      "id": "CT-25",
+      "title": "No dependency vulnerability scanning",
+      "unifiedSeverity": "Low",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "riskScore": 3,
+      "strideCategory": "ElevationOfPrivilege",
+      "affectedAssets": ["C-API", "C-FRONTEND", "C-CELERY"],
+      "trustBoundary": "Supply chain",
+      "description": "No automated dependency scanning configured despite CODING-CONVENTIONS.md requirement.",
+      "crossMethodologyConfirmation": ["RECON-17 (Repo Recon)"],
+      "existingControls": [
+        {"control": "Manual CVE audit", "status": "Convention", "verified": false}
+      ],
+      "recommendedMitigations": [
+        "Enable Dependabot",
+        "Add pip-audit and npm audit to CI"
+      ],
+      "residualRisk": "Low"
+    },
+    {
+      "id": "CT-26",
+      "title": "No data retention or deletion policies",
+      "unifiedSeverity": "Low",
+      "likelihood": "Low",
+      "impact": "Medium",
+      "riskScore": 2,
+      "strideCategory": "InformationDisclosure",
+      "affectedAssets": ["C-POSTGIS", "C-OBJSTORE"],
+      "trustBoundary": "C-ZONE-DATA",
+      "description": "Datasets and raw files accumulate indefinitely. No cleanup or lifecycle management.",
+      "crossMethodologyConfirmation": ["RECON-14 (Repo Recon)", "DOC gap-06"],
+      "existingControls": [],
+      "recommendedMitigations": [
+        "Define retention policies",
+        "Implement cascading dataset deletion"
+      ],
+      "residualRisk": "Low"
+    }
+  ],
+  "controlsInventory": [
+    {"id": "ctrl-01", "name": "File content validation", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-02", "name": "ASGI upload size limits", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-03", "name": "Path traversal prevention for archives", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md, INITIAL-PLAN.md"},
+    {"id": "ctrl-04", "name": "Subprocess isolation for GIS parsing", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-05", "name": "Parameterized SQL queries", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-06", "name": "No shell execution with user input", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-07", "name": "Structured safe logging", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-08", "name": "GraphQL depth/complexity limits", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-09", "name": "Celery task timeouts", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-10", "name": "No secrets in code", "status": "Planned", "verifiedInCode": false, "source": "CODING-CONVENTIONS.md"},
+    {"id": "ctrl-11", "name": "Raw uploads outside web root", "status": "Planned", "verifiedInCode": false, "source": "INITIAL-PLAN.md"},
+    {"id": "ctrl-12", "name": "CDN tile caching", "status": "Planned", "verifiedInCode": false, "source": "ARCHITECTURE.md"},
+    {"id": "ctrl-13", "name": "PgBouncer connection pooling", "status": "Planned", "verifiedInCode": false, "source": "ARCHITECTURE.md"},
+    {"id": "ctrl-14", "name": "React JSX auto-escaping", "status": "Inherent to framework", "verifiedInCode": false, "source": "React default behavior"}
+  ],
+  "documentationGaps": [
+    {"id": "gap-auth", "description": "No authentication architecture", "severity": "Critical", "recommendation": "Add Authentication section to ARCHITECTURE.md before implementation"},
+    {"id": "gap-authz", "description": "No authorization model", "severity": "Critical", "recommendation": "Add Authorization section; add owner_id to data model"},
+    {"id": "gap-scope", "description": "V1 scope contradiction between INITIAL-PLAN.md and ARCHITECTURE.md", "severity": "Medium", "recommendation": "Reconcile — update INITIAL-PLAN.md or create V1-specific architecture"},
+    {"id": "gap-formats", "description": "Ingestion format list differs across docs", "severity": "Low", "recommendation": "Clarify V1 vs future format support"},
+    {"id": "gap-tls", "description": "No TLS for inter-service communication", "severity": "High", "recommendation": "Document TLS requirements for all connections"},
+    {"id": "gap-encrypt-rest", "description": "No encryption at rest", "severity": "Medium", "recommendation": "Document encryption requirements"},
+    {"id": "gap-retention", "description": "No data retention policy", "severity": "Medium", "recommendation": "Define data lifecycle"},
+    {"id": "gap-incident", "description": "No incident response procedures", "severity": "Medium", "recommendation": "Create incident response runbook"},
+    {"id": "gap-audit", "description": "No audit logging architecture", "severity": "High", "recommendation": "Define audit logging requirements"},
+    {"id": "gap-network", "description": "No production network architecture", "severity": "High", "recommendation": "Document production deployment architecture"}
+  ],
+  "perspectiveCoverageMatrix": {
+    "perspectives": ["Security Architecture (AI)"],
+    "missingPerspectives": ["GIS Domain Expert", "DevOps/SRE", "Business Stakeholder", "Frontend Developer", "Backend Developer"],
+    "componentCoverage": {
+      "C-API": {"securityArchitecture": "Full"},
+      "C-MARTIN": {"securityArchitecture": "Full"},
+      "C-POSTGIS": {"securityArchitecture": "Full"},
+      "C-REDIS": {"securityArchitecture": "Full"},
+      "C-CELERY": {"securityArchitecture": "Full"},
+      "C-FRONTEND": {"securityArchitecture": "Partial — no frontend developer input"},
+      "C-GDAL": {"securityArchitecture": "Partial — no GIS domain expert input"},
+      "C-CDN": {"securityArchitecture": "Partial — no DevOps input"}
+    },
+    "blindSpots": [
+      "GIS-specific attack vectors (CRS manipulation, coordinate injection, geometry bombs) — needs GIS domain expert",
+      "Production deployment threats (container orchestration, service discovery, secrets injection) — needs DevOps",
+      "Business impact calibration (which datasets are most valuable, regulatory exposure) — needs business stakeholder",
+      "Frontend-specific threats (MapLibre GL JS vulnerabilities, WebGL attacks, client-side performance abuse) — needs frontend developer"
+    ]
+  },
+  "riskSummary": {
+    "critical": 2,
+    "high": 13,
+    "medium": 10,
+    "low": 2,
+    "informational": 0,
+    "total": 27,
+    "topRisks": [
+      {"id": "CT-01", "title": "No authentication", "riskScore": 10},
+      {"id": "CT-02", "title": "No authorization", "riskScore": 10},
+      {"id": "CT-03", "title": "Native library exploitation", "riskScore": 8},
+      {"id": "CT-06", "title": "GraphQL complexity abuse", "riskScore": 8},
+      {"id": "CT-07", "title": "Unlimited upload size", "riskScore": 8},
+      {"id": "CT-09", "title": "No rate limiting", "riskScore": 8},
+      {"id": "CT-15", "title": "No audit logging", "riskScore": 8}
+    ]
+  }
+}

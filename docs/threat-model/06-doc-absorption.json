@@ -1,0 +1,485 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "2.0",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-03-31T00:00:00Z",
+    "tools": [
+      {
+        "name": "Document and Architecture Absorption",
+        "version": "1.0"
+      }
+    ],
+    "documentsProcessed": [
+      "INITIAL-PLAN.md",
+      "ARCHITECTURE.md",
+      "CODING-CONVENTIONS.md",
+      "README.md",
+      "REQUIREMENT-TEMPLATE.md",
+      "CLAUDE.md"
+    ]
+  },
+  "modelTypes": ["architecture", "dataFlow", "threat"],
+  "methodologies": ["Document Analysis"],
+  "assets": [
+    {
+      "id": "doc-asset-frontend",
+      "name": "React + TypeScript + MapLibre GL JS Frontend",
+      "type": "application",
+      "source": "ARCHITECTURE.md",
+      "description": "Browser SPA for map rendering, feature inspection, and dataset management. Optional deck.gl for advanced visualization.",
+      "technology": "React, TypeScript strict mode, MapLibre GL JS",
+      "conventions": "Functional components with hooks. No class components. ESLint + Prettier enforced."
+    },
+    {
+      "id": "doc-asset-api",
+      "name": "FastAPI + Strawberry GraphQL API",
+      "type": "application",
+      "source": "ARCHITECTURE.md",
+      "description": "ASGI framework hosting GraphQL (code-first via Strawberry) and delegating tile serving to Martin. Handles file uploads via multipart GraphQL upload spec.",
+      "technology": "Python 3.12+, FastAPI 0.115+, Strawberry 0.250+, Pydantic v2, Uvicorn",
+      "conventions": "async/await for all route handlers. Pydantic v2 models for all request/response schemas. ruff for linting."
+    },
+    {
+      "id": "doc-asset-martin",
+      "name": "Martin Vector Tile Server",
+      "type": "application",
+      "source": "ARCHITECTURE.md",
+      "description": "Standalone Rust vector tile server from MapLibre team. Reads directly from PostGIS. Serves binary MVT tiles over REST.",
+      "technology": "Martin 0.15+",
+      "endpoint": "GET /{layer}/{z}/{x}/{y}"
+    },
+    {
+      "id": "doc-asset-postgis",
+      "name": "PostGIS Spatial Database",
+      "type": "dataStore",
+      "source": "ARCHITECTURE.md, INITIAL-PLAN.md",
+      "description": "Primary spatial data store. Holds datasets, spatial features (normalized polygons), and ingestion run records.",
+      "technology": "PostgreSQL + PostGIS, SQLAlchemy 2.x + GeoAlchemy2 0.15+, Alembic for migrations",
+      "dataModel": {
+        "tables": [
+          {
+            "name": "dataset",
+            "sensitiveFields": ["source_filename", "raw_file_path"],
+            "description": "Dataset metadata including source format, CRS, feature count, extent, ingestion status, validation summary"
+          },
+          {
+            "name": "feature",
+            "sensitiveFields": ["properties"],
+            "description": "Individual polygons/multipolygons with normalized geometry (EPSG:4326), source attributes as JSON, computed area, validation status"
+          },
+          {
+            "name": "ingestion_run",
+            "sensitiveFields": [],
+            "description": "Ingestion execution records with timing, status, and outcome messages"
+          }
+        ]
+      }
+    },
+    {
+      "id": "doc-asset-redis",
+      "name": "Redis Cache and Broker",
+      "type": "dataStore",
+      "source": "ARCHITECTURE.md",
+      "description": "Dual role: caching expensive spatial query results and serving as Celery task broker for job state management."
+    },
+    {
+      "id": "doc-asset-pgbouncer",
+      "name": "PgBouncer Connection Pooler",
+      "type": "infrastructure",
+      "source": "ARCHITECTURE.md",
+      "description": "Required to multiplex 10K concurrent user connections to PostgreSQL. Version 1.23+."
+    },
+    {
+      "id": "doc-asset-celery",
+      "name": "Celery Background Workers",
+      "type": "application",
+      "source": "ARCHITECTURE.md",
+      "description": "Persistent background jobs for ingestion, spatial processing, exports. Task routing, retries, monitoring via Flower.",
+      "technology": "Celery 5.x + Redis broker"
+    },
+    {
+      "id": "doc-asset-duckdb",
+      "name": "DuckDB Spatial Processor",
+      "type": "application",
+      "source": "ARCHITECTURE.md",
+      "description": "Batch processing within Celery workers. Larger-than-memory streaming. Native GeoParquet read/write. Spatial functions.",
+      "technology": "DuckDB 1.2+ with spatial extension",
+      "constraints": "Batch processing only, never for serving. Parameterized queries only."
+    },
+    {
+      "id": "doc-asset-object-storage",
+      "name": "Object Storage",
+      "type": "dataStore",
+      "source": "ARCHITECTURE.md, INITIAL-PLAN.md",
+      "description": "Stores raw uploaded files outside the web root with provenance metadata.",
+      "technology": "S3-compatible or local filesystem"
+    },
+    {
+      "id": "doc-asset-cdn",
+      "name": "CDN Edge Cache",
+      "type": "infrastructure",
+      "source": "ARCHITECTURE.md",
+      "description": "Edge caching for tile requests. Absorbs repeat tile requests from 10K concurrent users.",
+      "technology": "CloudFront, Cloudflare, or similar"
+    },
+    {
+      "id": "doc-asset-fiona",
+      "name": "Fiona (GDAL/OGR wrapper)",
+      "type": "library",
+      "source": "ARCHITECTURE.md",
+      "technology": "Fiona 1.10+",
+      "description": "Shapefile, GeoJSON, GeoPackage I/O. Wraps GDAL/OGR for 200+ format support and content-based detection."
+    },
+    {
+      "id": "doc-asset-shapely",
+      "name": "Shapely (GEOS wrapper)",
+      "type": "library",
+      "source": "ARCHITECTURE.md",
+      "technology": "Shapely 2.x",
+      "description": "Geometry operations: union, intersection, buffer, simplify, validate. Wraps GEOS C++. Vectorized ufuncs for batch ops. Releases GIL during C ops."
+    },
+    {
+      "id": "doc-asset-pyproj",
+      "name": "pyproj (PROJ wrapper)",
+      "type": "library",
+      "source": "ARCHITECTURE.md",
+      "technology": "pyproj 3.7+",
+      "description": "CRS detection, transformation, reprojection. Wraps native PROJ library."
+    }
+  ],
+  "actors": [
+    {
+      "id": "doc-actor-enduser",
+      "name": "End User",
+      "source": "INITIAL-PLAN.md",
+      "description": "Uploads polygon datasets, views maps, inspects features, applies filters. Interacts via browser.",
+      "trustLevel": "untrusted",
+      "capabilities": ["upload datasets", "view maps", "inspect features", "filter by attributes", "zoom and pan"]
+    },
+    {
+      "id": "doc-actor-contributor",
+      "name": "Developer / Contributor",
+      "source": "CLAUDE.md, CODING-CONVENTIONS.md",
+      "description": "Human or AI contributor implementing features. Uses issue branches from main, follows coding conventions.",
+      "trustLevel": "trusted"
+    }
+  ],
+  "zones": [
+    {
+      "id": "doc-zone-browser",
+      "name": "Browser Zone",
+      "source": "ARCHITECTURE.md diagram",
+      "assets": ["doc-asset-frontend"],
+      "trustLevel": "untrusted"
+    },
+    {
+      "id": "doc-zone-edge",
+      "name": "Edge Cache Zone",
+      "source": "ARCHITECTURE.md diagram",
+      "assets": ["doc-asset-cdn"],
+      "trustLevel": "semi-trusted"
+    },
+    {
+      "id": "doc-zone-app",
+      "name": "Application Zone",
+      "source": "ARCHITECTURE.md diagram",
+      "assets": ["doc-asset-api", "doc-asset-martin"],
+      "trustLevel": "trusted"
+    },
+    {
+      "id": "doc-zone-data",
+      "name": "Data Zone",
+      "source": "ARCHITECTURE.md diagram",
+      "assets": ["doc-asset-postgis", "doc-asset-redis", "doc-asset-object-storage", "doc-asset-pgbouncer"],
+      "trustLevel": "trusted"
+    },
+    {
+      "id": "doc-zone-processing",
+      "name": "Processing Zone",
+      "source": "ARCHITECTURE.md diagram",
+      "assets": ["doc-asset-celery", "doc-asset-duckdb"],
+      "trustLevel": "trusted"
+    }
+  ],
+  "flows": [
+    {
+      "id": "doc-flow-upload",
+      "name": "Dataset Upload Flow",
+      "source": "INITIAL-PLAN.md Primary User Flow",
+      "description": "User uploads polygon dataset via browser -> GraphQL multipart upload mutation -> API stores raw file in object storage -> dispatches Celery ingestion task",
+      "steps": [
+        "User selects file and provides dataset name in browser",
+        "Frontend sends multipart GraphQL mutation to API",
+        "API validates file at ASGI layer (size limits)",
+        "API stores raw file in object storage",
+        "API creates dataset record in PostGIS (status: pending)",
+        "API dispatches Celery ingestion task"
+      ],
+      "sensitivity": "high",
+      "crossesBoundaries": ["doc-zone-browser -> doc-zone-app", "doc-zone-app -> doc-zone-data", "doc-zone-app -> doc-zone-processing"]
+    },
+    {
+      "id": "doc-flow-ingestion",
+      "name": "Ingestion Processing Flow",
+      "source": "INITIAL-PLAN.md Primary User Flow",
+      "description": "Celery worker reads raw file -> detects format -> parses features via Fiona -> detects/reads CRS via pyproj -> reprojects to EPSG:4326 -> validates geometry via Shapely -> stores normalized features in PostGIS",
+      "steps": [
+        "Celery worker picks up ingestion task from Redis",
+        "Worker reads raw file from object storage",
+        "Fiona detects input format and parses features/properties",
+        "pyproj detects or reads CRS from source",
+        "pyproj reprojects geometries to EPSG:4326",
+        "Shapely validates polygon/multipolygon geometry",
+        "Worker records validation warnings and repairs",
+        "Worker writes normalized features to PostGIS",
+        "Worker updates dataset status to complete/failed"
+      ],
+      "sensitivity": "high",
+      "notes": "Multiple native C/C++ libraries process untrusted data in this flow"
+    },
+    {
+      "id": "doc-flow-map-view",
+      "name": "Map Visualization Flow",
+      "source": "INITIAL-PLAN.md Primary User Flow, ARCHITECTURE.md",
+      "description": "Frontend requests vector tiles -> CDN serves cached tiles or forwards to Martin -> Martin queries PostGIS -> returns binary MVT",
+      "sensitivity": "medium"
+    },
+    {
+      "id": "doc-flow-feature-query",
+      "name": "Feature Query and Inspection Flow",
+      "source": "INITIAL-PLAN.md Primary User Flow",
+      "description": "User clicks feature on map -> frontend sends GraphQL query -> API queries PostGIS via SQLAlchemy -> returns feature properties and metadata",
+      "sensitivity": "medium"
+    },
+    {
+      "id": "doc-flow-spatial-query",
+      "name": "Spatial Analysis Query Flow",
+      "source": "ARCHITECTURE.md API Design",
+      "description": "GraphQL spatial queries (intersect, filter) -> API builds parameterized spatial SQL -> PostGIS executes spatial operations -> results cached in Redis",
+      "sensitivity": "medium",
+      "notes": "Expensive spatial operations on large polygons (50K+ vertices) are CPU-intensive"
+    }
+  ],
+  "controls": [
+    {
+      "id": "ctrl-file-validation",
+      "name": "File content validation",
+      "source": "CODING-CONVENTIONS.md Section 10, INITIAL-PLAN.md Security Requirements",
+      "description": "Validate file content, not just extension. Content-based format detection via GDAL/OGR.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-size-limits",
+      "name": "Upload size limits at ASGI layer",
+      "source": "CODING-CONVENTIONS.md Section 10",
+      "description": "Enforce size limits at the ASGI layer for file uploads.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-path-traversal",
+      "name": "Archive extraction path traversal prevention",
+      "source": "CODING-CONVENTIONS.md Section 10, INITIAL-PLAN.md Security Requirements",
+      "description": "Prevent path traversal during archive extraction for Shapefile uploads.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-subprocess-isolation",
+      "name": "GIS parsing subprocess isolation",
+      "source": "CODING-CONVENTIONS.md Section 10",
+      "description": "Safely parse GIS formats by isolating native tooling in subprocesses.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-parameterized-queries",
+      "name": "Parameterized database queries",
+      "source": "CODING-CONVENTIONS.md Section 10",
+      "description": "SQLAlchemy and DuckDB parameterized queries. Never interpolate user input into SQL strings.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-no-shell",
+      "name": "No shell execution with user input",
+      "source": "CODING-CONVENTIONS.md Section 10",
+      "description": "No shell execution with user input.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-safe-logging",
+      "name": "Safe structured logging",
+      "source": "CODING-CONVENTIONS.md Sections 9 and 10",
+      "description": "Structured JSON logging. No internal paths, credentials, or PII in log output.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-graphql-limits",
+      "name": "GraphQL depth and complexity limits",
+      "source": "CODING-CONVENTIONS.md Section 10",
+      "description": "GraphQL query depth and complexity limits enforced at the gateway layer.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-celery-timeouts",
+      "name": "Celery task timeouts",
+      "source": "CODING-CONVENTIONS.md Sections 9 and 10",
+      "description": "Explicit timeout on every Celery task (soft_time_limit, time_limit). Tasks must be idempotent.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-no-secrets-in-code",
+      "name": "No secrets in code",
+      "source": "CODING-CONVENTIONS.md Section 10",
+      "description": "Use environment variables or a secrets manager for all credentials.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-raw-outside-webroot",
+      "name": "Raw uploads outside web root",
+      "source": "INITIAL-PLAN.md Security Requirements",
+      "description": "Keep raw uploads outside the web root to prevent direct access.",
+      "status": "Documented — Not Implemented"
+    },
+    {
+      "id": "ctrl-error-handling",
+      "name": "Domain-specific error handling",
+      "source": "CODING-CONVENTIONS.md Section 9",
+      "description": "Raise domain-specific exceptions. Let FastAPI exception handlers translate to HTTP responses. Never catch bare Exception unless re-raising. Record failures without exposing internal paths or stack traces.",
+      "status": "Documented — Not Implemented"
+    }
+  ],
+  "threats": [
+    {
+      "id": "DOC-T01",
+      "title": "Authentication architecture entirely absent from documentation",
+      "source": "Gap analysis across all documents",
+      "description": "No document mentions how users authenticate. INITIAL-PLAN.md defines user flows (upload, review, explore) but never addresses who can perform these actions or how identity is established. ARCHITECTURE.md defines the full tech stack but includes no auth component (no OAuth2 provider, no session store, no JWT library). CODING-CONVENTIONS.md covers security extensively but never mentions authentication.",
+      "category": "Spoofing",
+      "severity": "Critical",
+      "notes": "This is the single largest security gap in the documentation."
+    },
+    {
+      "id": "DOC-T02",
+      "title": "Authorization model entirely absent from documentation",
+      "source": "Gap analysis across all documents",
+      "description": "No document defines access control. There is no concept of dataset ownership, no role-based access, no permission model. The data model has no owner/user field on the dataset table.",
+      "category": "ElevationOfPrivilege",
+      "severity": "Critical"
+    },
+    {
+      "id": "DOC-T03",
+      "title": "Untrusted file processing through native code identified as risk",
+      "source": "INITIAL-PLAN.md Security Requirements, CODING-CONVENTIONS.md Section 10, ARCHITECTURE.md Risks",
+      "description": "Multiple documents acknowledge this risk. INITIAL-PLAN.md: 'All uploaded files are untrusted.' CODING-CONVENTIONS.md: 'Safely parse GIS formats (isolate native tooling in subprocesses).' ARCHITECTURE.md Risks table: 'GIL limits Python concurrency' — notes Shapely releases GIL during C ops, implying native execution.",
+      "category": "ElevationOfPrivilege",
+      "severity": "High",
+      "existingControls": ["ctrl-subprocess-isolation", "ctrl-file-validation", "ctrl-size-limits"]
+    },
+    {
+      "id": "DOC-T04",
+      "title": "Large polygon operations identified as DoS risk",
+      "source": "ARCHITECTURE.md Scale and Performance, Risks and Mitigations",
+      "description": "ARCHITECTURE.md explicitly identifies: '50K+ vertex polygons are CPU-intensive for buffer/union/intersection — run in Celery workers with appropriate timeouts.' The Risks table rates 'Large polygon processing timeouts' as MEDIUM severity with mitigation: 'Celery workers with configurable timeouts. Pre-simplify where appropriate.'",
+      "category": "DenialOfService",
+      "severity": "High",
+      "existingControls": ["ctrl-celery-timeouts"]
+    },
+    {
+      "id": "DOC-T05",
+      "title": "Tile serving under high concurrency identified as risk",
+      "source": "ARCHITECTURE.md Risks and Mitigations",
+      "description": "ARCHITECTURE.md rates '10K concurrent users overwhelm tile serving' as HIGH severity with mitigation: 'CDN edge caching in front of Martin. Tiles are highly cacheable.' Unique tile requests that bypass CDN cache remain a concern.",
+      "category": "DenialOfService",
+      "severity": "High",
+      "existingControls": ["CDN caching"]
+    }
+  ],
+  "gaps": [
+    {
+      "id": "gap-01",
+      "description": "INITIAL-PLAN.md V1 Non-Goals list Redis, Celery, Martin, and CDN as deferred — but ARCHITECTURE.md includes all of them in the architecture with specific version requirements.",
+      "type": "contradiction",
+      "affectedDocuments": ["INITIAL-PLAN.md", "ARCHITECTURE.md"],
+      "recommendation": "Resolve scope: either update INITIAL-PLAN.md to include these components in V1, or create a separate V1 architecture that excludes them."
+    },
+    {
+      "id": "gap-02",
+      "description": "INITIAL-PLAN.md specifies V1 formats as 'GeoJSON and Shapefile'. ARCHITECTURE.md lists ingestion formats as 'GeoParquet, GeoJSON, Shapefile, WKT'. README.md lists all four.",
+      "type": "contradiction",
+      "affectedDocuments": ["INITIAL-PLAN.md", "ARCHITECTURE.md", "README.md"],
+      "recommendation": "Clarify which formats are V1 scope and which are deferred."
+    },
+    {
+      "id": "gap-03",
+      "description": "No authentication architecture in any document. No mention of session management, JWT, OAuth2, API keys, or any identity mechanism.",
+      "type": "missing",
+      "affectedDocuments": ["All"],
+      "recommendation": "Add an Authentication and Authorization section to ARCHITECTURE.md before implementation begins."
+    },
+    {
+      "id": "gap-04",
+      "description": "No TLS/HTTPS configuration documented for any inter-service communication.",
+      "type": "missing",
+      "affectedDocuments": ["ARCHITECTURE.md"],
+      "recommendation": "Document TLS requirements for all connections: client to API, API to PgBouncer, Martin to PgBouncer, API to Redis, Celery to Redis."
+    },
+    {
+      "id": "gap-05",
+      "description": "No encryption at rest requirements documented for any data store.",
+      "type": "missing",
+      "affectedDocuments": ["ARCHITECTURE.md", "CODING-CONVENTIONS.md"],
+      "recommendation": "Define encryption at rest requirements based on data classification."
+    },
+    {
+      "id": "gap-06",
+      "description": "No data retention or deletion policies documented.",
+      "type": "missing",
+      "affectedDocuments": ["INITIAL-PLAN.md"],
+      "recommendation": "Define data lifecycle: how long datasets are retained, how deletion cascades to features and raw files."
+    },
+    {
+      "id": "gap-07",
+      "description": "No incident response procedures documented.",
+      "type": "missing",
+      "affectedDocuments": ["All"],
+      "recommendation": "Create incident response runbook before production deployment."
+    },
+    {
+      "id": "gap-08",
+      "description": "No audit logging architecture documented. CODING-CONVENTIONS.md mentions structured logging but not audit trails for security-relevant events.",
+      "type": "missing",
+      "affectedDocuments": ["CODING-CONVENTIONS.md"],
+      "recommendation": "Define audit logging requirements: what events to log, what fields to include, where to store audit logs, retention period."
+    },
+    {
+      "id": "gap-09",
+      "description": "INITIAL-PLAN.md data model has no user/owner field on the dataset table. Feature table has no access control fields.",
+      "type": "missing",
+      "affectedDocuments": ["INITIAL-PLAN.md"],
+      "recommendation": "Add created_by/owner_id to dataset model to support authorization."
+    },
+    {
+      "id": "gap-10",
+      "description": "No network architecture for production deployment. Docker Compose is local dev only.",
+      "type": "missing",
+      "affectedDocuments": ["ARCHITECTURE.md"],
+      "recommendation": "Document production deployment architecture: network segmentation, firewall rules, service discovery."
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "doc-assumption-01",
+      "description": "All security controls in CODING-CONVENTIONS.md are implementation guidelines, not verified controls. Status: 'Documented — Not Implemented' for all.",
+      "securityImplication": "The actual security posture of the system is unknown until implementation is reviewed."
+    },
+    {
+      "id": "doc-assumption-02",
+      "description": "The system is intended to be single-tenant based on the absence of multi-tenant documentation.",
+      "securityImplication": "Data isolation between users depends entirely on unspecified authorization controls."
+    },
+    {
+      "id": "doc-assumption-03",
+      "description": "The primary validation dataset (USDA Crop Sequence Boundaries) is public data. The platform may also handle private/proprietary GIS data.",
+      "securityImplication": "If proprietary data is uploaded, the lack of access controls and encryption becomes a data breach risk."
+    }
+  ]
+}
