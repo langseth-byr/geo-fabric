@@ -14,7 +14,6 @@ from app.models import Dataset, ProcessingJob, SpatialFeature
 # Helpers
 # ---------------------------------------------------------------------------
 
-
 def _make_dataset(**overrides) -> Dataset:
     defaults = {
         "name": "Test Dataset",

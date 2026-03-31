@@ -54,4 +54,34 @@ Every issue should include:
 - Use one branch per issue
 - Keep PRs focused
 - Prefer draft PRs while scope is still moving
-- Make sure each PR uses a separate worktree so we can work simultaneously on different issues
+- Use a separate worktree for each PR so we can work simultaneously on
+  different issues
+
+## Git Worktrees
+
+Claude Code agents can run in isolated git worktrees (`isolation: "worktree"`).
+This gives the agent its own copy of the repo so it cannot interfere with
+uncommitted work on the current branch.
+
+### When to use worktree isolation
+
+- **Parallel implementation tasks** — two or more agents writing code at the
+  same time must each have their own worktree to avoid file conflicts
+- **Exploratory or spike work** — changes that may be discarded should not
+  pollute the working tree
+- **Risky refactors** — large-scale edits are safer in a worktree; review the
+  diff before merging back
+
+### When worktrees are unnecessary
+
+- **Read-only agents** — exploration, search, and research agents do not modify
+  files and do not need isolation
+- **Single sequential edits** — if only one agent is writing code and the
+  working tree is clean, a worktree adds overhead for no benefit
+
+### Cleanup and merging
+
+- If a worktree agent makes useful changes, review the resulting branch and
+  merge it into the issue branch (or open a PR from it)
+- If the changes are not needed, delete the worktree branch
+- Do not leave orphaned worktree branches — clean up after each task
