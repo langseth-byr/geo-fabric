@@ -1,62 +1,35 @@
-# GeoFabric - Geospatial Polygon Processing and Visualization Platform
+# GeoFabric — Project Memory
 
 ## Project Overview
+Full-stack geospatial platform for ingesting, validating, processing, analyzing, and visualizing polygon-based GIS datasets at scale. See [INITIAL-PLAN.md](INITIAL-PLAN.md) for full system design and [ARCHITECTURE.md](ARCHITECTURE.md) for tech stack.
 
-Full-stack geospatial platform for ingesting, validating, processing, analyzing, and visualizing polygon-based GIS datasets at scale. Focuses on vector polygon data (administrative boundaries, parcels, agricultural fields, zoning regions, custom overlays).
+## Workspace Setup
+1. Clone the repo
+2. Use Docker Compose for local services (PostGIS, Redis)
+3. Frontend and backend live in separate directories within the monorepo
 
-## Architecture
+## Branching Strategy
+- `main` is the stable branch — always deployable
+- Create feature branches from `main`: `issue-<number>-<short-description>`
+- One branch per issue, one PR per branch
+- PRs require review before merge
+- Delete branches after merge
+- Multiple contributors can work in parallel on separate issue branches
 
-### Frontend
-- React + TypeScript
-- MapLibre GL JS (primary) or OpenLayers
-- Optional deck.gl for advanced rendering
+## Coding Conventions
+- TypeScript strict mode (frontend)
+- Python type hints (backend, if Python chosen)
+- Lint and format before committing
+- No secrets or credentials in code — use environment variables
+- All AI-generated code must be test-gated
 
-### Backend API
-- FastAPI (Python) or Node.js (TypeScript) — TBD in Phase 1
-- GDAL/OGR for format handling
-- Shapely/GeoPandas (Python) or Turf/JSTS (Node) for spatial ops
-- PostGIS for spatial storage and queries
-
-### Storage
-- Object storage for raw files
-- PostGIS for normalized spatial data
-- Redis for caching and job state
-
-### Processing
-- Dedicated workers for reprojection, topology repair, overlay ops, simplification, tile generation, batch exports
-
-## Canonical Data Model
-
-### SpatialFeature
-Core entity: id, dataset_id, geometry_type, raw_geometry, normalized_geometry, bbox, centroid, area, perimeter, source_crs, normalized_crs, properties, validation_status, validation_errors, provenance, timestamps.
-
-### Dataset
-Container: id, name, source_format, source_file_uri, declared_crs, normalized_crs, feature_count, extent, ingestion_status, validation_summary, processing_history, timestamps.
-
-### ProcessingJob
-Async task: id, dataset_id, operation_type, parameters, status, result_artifact_uri, error_log, timestamps.
-
-## Ingestion Formats
-- GeoParquet, GeoJSON, Shapefile, WKT
-- Content-based type detection (not extension)
-- CRS normalization, geometry validation, provenance preservation
-
-## Key Use Case: USDA Crop Sequence Boundaries (CSB)
-- Millions of agricultural field polygons with multi-year crop sequence data
-- Extended model: crop_sequence, primary_crop, acreage, year_range, classification_tags
-- Temporal exploration, crop rotation analysis, regional aggregation
-
-## API Endpoints
-- POST /datasets/upload
-- GET /datasets/:id
-- GET /datasets/:id/features
-- POST /datasets/:id/validate
-- POST /datasets/:id/reproject
-- POST /datasets/:id/simplify
-- POST /datasets/:id/intersect
-- POST /datasets/:id/export
-- GET /jobs/:id
-- GET /tiles/:layer/:z/:x/:y
+## Development Principles
+- Preserve raw data always
+- Make transformations explicit and traceable
+- Correctness over performance initially
+- Fail safely on ambiguity
+- Separate processing from rendering
+- Design for extensibility
 
 ## Security Requirements
 All inputs are untrusted:
@@ -68,15 +41,6 @@ All inputs are untrusted:
 - Parameterized database queries
 - No shell execution with user input
 - Safe logging (no internal leaks)
-
-## Development Principles
-- Preserve raw data always
-- Make transformations explicit and traceable
-- Correctness over performance initially
-- Fail safely on ambiguity
-- Separate processing from rendering
-- Design for extensibility
-- All AI-generated code must be test-gated
 
 ## Testing Strategy
 - Geometry parsing, CRS transformation, topology repair tests
