@@ -1,153 +1,128 @@
-# GeoFabric — Architecture
+# GeoFabric — Lean Architecture
 
-## Tech Stack
+## Architectural Principle
+
+Start with the smallest stack that can prove the core workflow. Add complexity
+only after a measured bottleneck or a missing product need appears.
+
+## V1 Stack
 
 ### Frontend
-- **React + TypeScript**
-- **MapLibre GL JS** for map rendering
-- Optional **deck.gl** for advanced visualization
 
-### Backend API
-- **Python 3.12+**
-- **FastAPI** — ASGI framework hosting GraphQL and the tile REST endpoint
-- **Strawberry** — GraphQL library with async support, Pydantic integration, code-first schema
-- **Pydantic v2** — validation and settings
-- **Uvicorn** — ASGI server
+- React
+- TypeScript
+- Vite
+- MapLibre GL JS
 
-### Geospatial Libraries
-- **Shapely 2.x** — geometry operations (union, intersection, buffer, simplify, validate). Wraps GEOS (C++), vectorized ufuncs for batch ops.
-- **DuckDB + spatial extension** — tabular geospatial data processing via SQL. Larger-than-memory streaming, native GeoParquet read/write, spatial functions (ST_Area, ST_Intersects, etc.), zero-copy Parquet/CSV reads.
-- **Fiona** — Shapefile, GeoJSON, GeoPackage I/O (wraps GDAL/OGR)
-- **pyproj** — CRS detection, transformation, reprojection (wraps PROJ)
-- **GDAL/OGR** (via Fiona) — 200+ format support, content-based detection
+### Backend
+
+- Python 3.12+
+- FastAPI
+- Pydantic v2
+- SQLAlchemy 2.x
+
+### Geospatial
+
+- PostGIS for storage and spatial queries
+- Shapely for geometry validation and repair
+- pyproj for CRS handling
+- Fiona for GeoJSON and Shapefile parsing
 
 ### Storage
-- **PostGIS** — spatial data storage and indexing
-- **PgBouncer** — connection pooling
-- **SQLAlchemy 2.x + GeoAlchemy2** — ORM with PostGIS geometry column support
-- **Alembic** — database migrations
-- **Redis** — caching and job state
-- **Object storage** (S3-compatible or local) — raw uploaded files
 
-### Tile Serving
-- **Martin** (Rust, MapLibre team) — standalone vector tile server reading directly from PostGIS
-- **CDN** (CloudFront, Cloudflare, or similar) — edge caching for tile requests
-- Serves `GET /{layer}/{z}/{x}/{y}` as binary MVT over REST
+- PostgreSQL with PostGIS
+- Local filesystem storage for raw uploads in development
 
-### Job Processing
-- **Celery + Redis** — persistent background jobs (ingestion, spatial processing, exports). Retries, monitoring via Flower, task routing.
-- **DuckDB** used within Celery workers for batch spatial processing
-- **Python asyncio** — lightweight async within the API process
+### Local Development
 
-### Infrastructure
-- **Docker Compose** — local development (PostGIS, Redis, Martin, API, frontend)
+- Docker Compose for PostGIS
+- API and frontend can run directly on the host for faster iteration
 
-### Ingestion Formats
-- GeoParquet
-- GeoJSON
-- Shapefile
-- WKT
+## Why This Is Enough
 
----
+This stack supports the full V1 loop without introducing distributed-system
+overhead:
 
-## Architecture Diagram
+- Upload files
+- Parse and validate features
+- Normalize and store geometries
+- Query data back out
+- Render it in a map client
+
+## Explicitly Deferred
+
+These can be added later if evidence justifies them:
+
+- GraphQL
+- Celery
+- Redis
+- Martin
+- PgBouncer
+- CDN integration
+- DuckDB
+- deck.gl
+
+## System Shape
 
 ```
-                    [CDN / Edge Cache]
-                           |
-[React + TypeScript + MapLibre GL JS]
+[React + MapLibre]
         |
-   -----+------------------
-   |                       |
-[GraphQL API]     [Martin tile server]
- (Strawberry/       (REST, binary MVT)
-  FastAPI)                 |
-   |                       |
-   +-----------+-----------+
-               |
-        [PgBouncer]
-               |
-          [PostGIS]
-               |
-          [Redis]
-               |
-       [Celery workers + DuckDB]
-               |
-       [Object Storage]
+     [FastAPI]
+        |
+ [PostgreSQL + PostGIS]
+        |
+   [Raw Upload Storage]
 ```
 
----
+## API Direction
 
-## API Design
+Use REST for V1. Keep it boring.
 
-### GraphQL (all data operations)
-- **Mutations**: dataset upload (via multipart GraphQL upload spec), validate, reproject, simplify, intersect, export, delete
-- **Queries**: dataset metadata, paginated features with spatial/attribute filters, job status and results, spatial intersection queries
-- **Subscriptions** (future): job progress, live processing updates
-- Strawberry integrates with FastAPI and supports multipart file uploads
+Suggested endpoints:
 
-### REST (tile serving only)
-- `GET /{layer}/{z}/{x}/{y}` — binary MVT tiles served by Martin directly from PostGIS
-- Tiles must be REST: binary format, HTTP caching, CDN-friendly GET requests, MapLibre expects standard tile URLs
+- `POST /datasets` to upload a dataset
+- `GET /datasets` to list datasets
+- `GET /datasets/{id}` to fetch dataset metadata and validation summary
+- `GET /datasets/{id}/features` to fetch features in the current viewport or by
+  filter
+- `GET /datasets/{id}/features/{feature_id}` to inspect one feature
 
----
+If GraphQL becomes useful later, add it after the object model and frontend
+needs are stable.
 
-## Library Versions
+## Data Access Strategy
 
-| Library | Version | Purpose |
-|---|---|---|
-| FastAPI | 0.115+ | ASGI framework |
-| Strawberry | 0.250+ | GraphQL server |
-| Pydantic | 2.x | Validation |
-| SQLAlchemy | 2.x | ORM |
-| GeoAlchemy2 | 0.15+ | PostGIS geometry columns |
-| Shapely | 2.x | Geometry operations |
-| DuckDB | 1.2+ | Spatial data processing, GeoParquet I/O |
-| Fiona | 1.10+ | Format I/O (Shapefile, GeoJSON, etc.) |
-| pyproj | 3.7+ | CRS management |
-| Celery | 5.x | Background jobs |
-| Martin | 0.15+ | Vector tile server |
-| PgBouncer | 1.23+ | PostgreSQL connection pooling |
+- Store canonical geometry in PostGIS as `MULTIPOLYGON`
+- Store source attributes as JSONB
+- Use GIST indexes for geometry
+- Keep raw source files for audit and reprocessing
 
----
+## Performance Strategy For V1
 
-## Scale and Performance Requirements
+Do not design around speculative 10K-user load before a working product exists.
 
-### Spatial Resolution
-- 3m x 3m minimum resolution for polygon boundaries
-- A 2,000-hectare field at 3m resolution can produce 50,000+ vertices per polygon
+Start with:
 
-### Polygon Size
-- Up to 2,000+ hectares per individual polygon (20 km²)
-- Must support the largest agricultural fields globally:
-  - Brazil (Mato Grosso, MATOPIBA): single soy/cotton fields routinely 1,000+ ha, some 5,000+ ha
-  - Argentina (Pampas): 1,000-3,000 ha
-  - Australia: pastoral holdings exceeding 10,000 ha
-  - United States (Midwest): consolidated operations reaching 1,000+ ha
+- Bounding-box queries
+- Pagination or feature limits
+- Server-side filtering
+- Geometry simplification only if map rendering proves slow
 
-### Concurrency
-- 10,000 concurrent users performing map interactions, spatial queries, and data exploration
+Then measure.
 
-### Dataset Scale
-- Millions of polygons per dataset (validated against USDA CSB)
-- Billions of vertices across all datasets
+## Upgrade Triggers
 
-### Performance Implications
-- **Tile serving**: CDN in front of Martin absorbs repeat tile requests from 10K users. Martin handles cache misses from PostGIS.
-- **Connection pooling**: PgBouncer required to multiplex 10K user connections to PostGIS.
-- **Query caching**: Redis caches expensive spatial query results.
-- **Large polygon ops**: 50K+ vertex polygons are CPU-intensive for buffer/union/intersection — run in Celery workers with appropriate timeouts.
-- **Zoom-based simplification**: At continental zoom a 2,000 ha field is a single pixel (simplify to bbox). At field zoom render full 3m-resolution boundary. Progressive detail loading mandatory.
-- **DuckDB streaming**: Larger-than-memory processing essential for datasets with millions of high-vertex polygons.
+Only add more infrastructure when one of these happens:
 
----
+- Request latency is consistently unacceptable under real usage
+- Upload or processing tasks block the API long enough to hurt the product
+- Large dataset rendering cannot be solved with query limits and simplification
+- Deployment traffic requires connection pooling or edge caching
 
-## Risks and Mitigations
+## First Build Checklist
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| 10K concurrent users overwhelm tile serving | HIGH | CDN edge caching in front of Martin. Tiles are highly cacheable. |
-| Large polygon processing timeouts | MEDIUM | Celery workers with configurable timeouts. Pre-simplify where appropriate. Shapely 2.x vectorized ops. |
-| GIL limits Python concurrency | MEDIUM | Shapely releases GIL during C ops. DuckDB runs its own threads. Heavy work in Celery (separate processes). FastAPI async for I/O. |
-| DuckDB spatial extension maturity | LOW | PostGIS is authoritative for serving. DuckDB for batch only. Convert to Shapely for edge cases. |
-| GraphQL file uploads | LOW | Strawberry supports multipart spec. Size limits at ASGI layer. |
+- One backend service
+- One frontend app
+- One PostGIS database
+- Seed fixture or sample dataset
+- End-to-end ingestion and visualization test

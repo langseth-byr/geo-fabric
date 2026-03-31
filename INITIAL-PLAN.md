@@ -1,453 +1,181 @@
-# GeoFabric: Geospatial Polygon Processing and Visualization Platform
+# GeoFabric — Practical Initial Plan
 
-## Overview
+## Purpose
 
-Full-stack geospatial platform for ingesting, validating, processing, analyzing, and visualizing polygon-based GIS datasets at scale.
+GeoFabric is a geospatial web application for uploading polygon datasets,
+validating them, storing them with provenance, and visualizing them on a map.
 
-The system focuses on vector polygon data: administrative boundaries, parcels, agricultural fields, zoning regions, and custom overlays. It provides a deterministic and auditable pipeline from raw GIS ingestion through spatial processing to interactive visualization.
+The first version should prove one complete path:
 
-The platform prioritizes correctness, traceability, performance, and safe handling of untrusted geospatial inputs.
+1. Upload a dataset
+2. Parse polygon features safely
+3. Normalize CRS to EPSG:4326
+4. Validate geometry and record issues
+5. Store the dataset in PostGIS
+6. Render the dataset in a web map
+7. Inspect features and filter by basic attributes
 
-> **Related documents:**
-> - [ARCHITECTURE.md](ARCHITECTURE.md) — Tech stack, library versions, architecture diagram, scale/performance requirements, risks
-> - [CODING-CONVENTIONS.md](CODING-CONVENTIONS.md) — Coding standards, security requirements, testing strategy, development principles
+If that loop works well on a real dataset, the project is viable. Everything
+else is secondary.
 
----
+## V1 Goals
 
-## Goals
+- Accept one or two common polygon formats first: GeoJSON and Shapefile
+- Preserve the raw uploaded file and provenance metadata
+- Normalize geometries into a canonical PostGIS model
+- Record validation warnings and repairs explicitly
+- Render stored features in a browser map
+- Support feature inspection and simple filtering
+- Keep the system understandable enough for one engineer to build and maintain
 
-- Ingest real-world GIS polygon datasets (including agriculture machine data from John Deere and similar)
-- Normalize all data into a canonical spatial model
-- Provide robust geometry validation and repair
-- Support spatial processing and analysis workflows
-- Render large datasets efficiently in a web-based map UI (similar in spirit to QGIS, but not constrained to that design)
-- Maintain full auditability of transformations
-- Safely process untrusted geospatial files
-- Scale to large datasets (millions of polygons)
+## V1 Non-Goals
 
----
+These are deferred until the first end-to-end slice is stable:
 
-## Data Ingestion
+- GraphQL
+- Celery
+- Redis
+- Martin
+- CDN strategy
+- Multi-tenant scaling work
+- Temporal animation
+- Multi-dataset comparison workflows
+- GeoParquet support
+- WKT import/export
+- Advanced spatial analysis tools
 
-### Supported Formats
+## Primary User Flow
 
-- GeoParquet
-- GeoJSON
-- Shapefile
-- WKT
+### 1. Upload
 
-### Pipeline Responsibilities
+The user uploads a polygon dataset and provides a dataset name.
 
-- Detect and validate file type (content-based, not extension)
-- Parse geometry and attributes
-- Normalize coordinate reference system (CRS)
-- Validate geometry integrity
-- Detect malformed or self-intersecting polygons
-- Preserve metadata and provenance (source of each polygon)
-- Generate ingestion diagnostics
+### 2. Ingestion
 
-### CRS Handling
+The backend:
 
-- Preserve source CRS
-- Normalize to internal CRS (EPSG:4326)
-- Track all transformations
-- Fail safely on ambiguity
-- Never silently reproject
+- Detects the input format
+- Parses features and properties
+- Detects or reads CRS
+- Reprojects to EPSG:4326 when possible
+- Validates polygon and multipolygon geometry
+- Stores the raw file plus ingestion results
 
-### Geometry Validation
+### 3. Review
 
-Detect and handle:
+The user can see:
 
-- Self-intersections
-- Invalid rings
-- Duplicate vertices
-- Winding order issues
-- Zero-area polygons
-- Empty geometries
-- CRS mismatches
+- Dataset status
+- Feature count
+- Bounding box
+- Validation summary
+- Any warnings or repairs performed
 
-All repairs must be explicit and traceable.
+### 4. Explore
 
----
+The user can:
 
-## Canonical Data Model
+- View the dataset on a map
+- Click a feature to inspect properties
+- Filter features by a small set of attributes
+- Zoom and pan without loading the whole world into the client at once
 
-### SpatialFeature
-
-| Field | Description |
-|---|---|
-| id | Unique feature identifier |
-| dataset_id | Parent dataset reference |
-| geometry_type | Polygon or MultiPolygon |
-| raw_geometry | Original geometry as ingested |
-| normalized_geometry | Geometry after CRS normalization and validation |
-| bbox | Bounding box |
-| centroid | Computed centroid |
-| area | Computed area |
-| perimeter | Computed perimeter |
-| source_crs | Original coordinate reference system |
-| normalized_crs | Internal CRS after normalization |
-| properties | Arbitrary key-value attributes from source |
-| validation_status | Pass, fail, or repaired |
-| validation_errors | List of detected issues |
-| provenance | Source file, ingestion timestamp, pipeline version |
-| created_at | Record creation timestamp |
-| updated_at | Last modification timestamp |
+## Minimal Data Model
 
 ### Dataset
 
 | Field | Description |
 |---|---|
-| id | Unique dataset identifier |
-| name | Human-readable name |
-| source_format | Original file format |
-| source_file_uri | Location of raw uploaded file |
-| declared_crs | CRS declared by the source file |
-| normalized_crs | Internal CRS after normalization |
-| feature_count | Number of features |
-| extent | Spatial extent (bounding box) |
-| ingestion_status | Pending, processing, complete, failed |
-| validation_summary | Aggregate validation results |
-| processing_history | Ordered list of operations applied |
-| created_at | Record creation timestamp |
-| updated_at | Last modification timestamp |
+| id | Dataset identifier |
+| name | User-provided name |
+| source_format | Detected input format |
+| source_filename | Original filename |
+| source_crs | CRS declared or detected from source |
+| normalized_crs | Internal CRS, always EPSG:4326 |
+| feature_count | Number of stored features |
+| extent | Dataset bounding box |
+| ingestion_status | pending, complete, failed |
+| validation_summary | Aggregate counts of errors and repairs |
+| raw_file_path | Stored raw upload location |
+| created_at | Creation timestamp |
+| updated_at | Last update timestamp |
 
-### ProcessingJob
+### Feature
 
 | Field | Description |
 |---|---|
-| id | Unique job identifier |
-| dataset_id | Target dataset |
-| operation_type | Type of spatial operation |
-| parameters | Operation parameters |
-| status | Queued, running, complete, failed |
-| result_artifact_uri | Location of output artifact |
-| error_log | Error details if failed |
-| created_at | Job creation timestamp |
-| completed_at | Job completion timestamp |
+| id | Feature identifier |
+| dataset_id | Parent dataset |
+| geometry | Normalized polygon or multipolygon |
+| properties | Source attributes as JSON |
+| area_m2 | Computed area |
+| validation_status | valid, repaired, invalid |
+| validation_messages | Validation or repair notes |
+| created_at | Creation timestamp |
 
----
+### IngestionRun
 
-## Spatial Processing
+| Field | Description |
+|---|---|
+| id | Ingestion run identifier |
+| dataset_id | Related dataset |
+| started_at | Start time |
+| finished_at | Finish time |
+| status | running, complete, failed |
+| message | Human-readable outcome |
 
-### Polygon Operations
+## Security Requirements
 
-- Union
-- Intersection
-- Difference
-- Clipping
-- Dissolve by attribute
-- Simplification
-- Buffering
-- Reprojection
-- Topology repair
+All uploaded files are untrusted.
 
-### Spatial Analysis
+- Validate file content, not only file extension
+- Enforce upload size limits
+- Reject unsupported geometry types in v1
+- Handle archive extraction carefully for Shapefile uploads
+- Record failures without exposing internal paths or stack traces to users
+- Keep raw uploads outside the web root
 
-- Overlap detection
-- Adjacency detection
-- Point-in-polygon
-- Spatial joins
-- Bounding box queries
+## Success Criteria For V1
 
-### Execution Modes
+The project is successful when all of the following are true:
 
-- Single feature operations
-- Batch operations
-- Large dataset workflows
-- Asynchronous execution for heavy tasks (via Celery workers)
+- A real GeoJSON dataset can be uploaded, normalized, stored, and viewed
+- A real Shapefile dataset can be uploaded, normalized, stored, and viewed
+- Invalid polygon cases produce explicit validation output
+- The map can display dataset features and inspect a clicked feature
+- The codebase remains small enough that new work can be added without a major
+  redesign
 
----
+## Suggested Delivery Order
 
-## Query and Analysis
+### Phase 1
 
-Users can:
+- Repo scaffold
+- PostGIS-backed backend
+- GeoJSON upload and ingestion
+- Basic map view for stored data
 
-- Search by metadata
-- Filter by attributes
-- Query by spatial intersection
-- Inspect polygon metrics (area, perimeter, derived properties)
-- Compare layers
-- Export subsets
-- Run spatial analysis operations
-- Navigate the globe (Google Earth-style exploration)
+### Phase 2
 
----
+- Shapefile ingestion
+- Validation reporting
+- Feature detail view
+- Basic server-side filtering
 
-## Export
+### Phase 3
 
-Supported export formats (same as ingestion):
+- One large real-world dataset test
+- Performance tuning based on measured bottlenecks
+- Decide whether vector tiles or background jobs are actually needed
+
+## Deferred Expansion
+
+Only after V1 is proven should the project consider:
 
 - GeoParquet
-- GeoJSON
-- Shapefile
-- WKT
-
-Users can export:
-
-- Full datasets
-- Current filtered view
-- Selected spatial region
-- Analysis results
-
----
-
-## API Design
-
-### GraphQL (all data operations)
-
-- **Mutations**: dataset upload, validate, reproject, simplify, intersect, export, delete
-- **Queries**: dataset metadata, paginated features with spatial/attribute filters, job status, spatial intersection queries
-- **Subscriptions** (future): job progress, live processing updates
-
-### REST (tile serving only)
-
-- `GET /{layer}/{z}/{x}/{y}` — binary MVT tiles served by Martin from PostGIS
-
-> See [ARCHITECTURE.md](ARCHITECTURE.md) for full API and stack details.
-
----
-
-## Visualization
-
-### Map Interactions
-
-- Pan and zoom
-- Layer toggling
-- Attribute-based styling
-- Hover and click inspection
-- Polygon highlighting
-- Filtering
-- Legend rendering
-- Coordinate display
-- Synchronized attribute table
-- Multi-layer overlays
-
-### Multi-Scale Rendering
-
-#### High Zoom (Detail Mode)
-- Full polygon geometry with 3m resolution boundaries
-- Feature-level inspection with full metadata
-- Precise selection
-
-#### Medium Zoom (Simplified Mode)
-- Simplified geometries with reduced vertex count
-- Clustering or grouping where appropriate
-
-#### Low Zoom (Aggregate Mode)
-- Aggregated statistics (e.g., acreage totals)
-- Heatmaps or choropleths
-- Vector tiles instead of raw features
-
-### Performance Strategies
-
-- Vector tiling via Martin (CDN-cached)
-- Viewport-based loading (fetch only visible features)
-- Zoom-based geometry simplification
-- Progressive rendering (load incrementally, refine on zoom)
-- Redis caching of expensive query results
-
-### Visual Consistency
-
-- Consistent styling across zoom levels
-- Stable feature identity across transformations
-- Predictable color mapping for attributes
-
-### Feedback and Transparency
-
-Users should always understand:
-
-- What data is currently shown
-- What filters are applied
-- What transformations are active
-- Whether data is aggregated or raw
-
----
-
-## User Workflows
-
-### 1. Dataset Exploration
-
-- Load one or more datasets
-- Toggle layers on and off
-- Zoom from national to field-level views
-- Pan across the map seamlessly
-- Inspect dataset metadata
-
-### 2. Ad-Hoc Spatial Analysis
-
-- Draw a region on the map and analyze intersecting polygons
-- Filter features by attribute (e.g., crop type, year)
-- Dynamically update results as filters change
-- Compare datasets visually via overlay
-- Isolate subsets of interest
-
-All analysis operations should feel immediate or near real-time where possible.
-
-### 3. Feature Inspection
-
-On click or hover, display:
-
-- Feature ID
-- Attributes (e.g., crop history)
-- Computed metrics (area, perimeter)
-- Derived insights (classification, tags)
-
-### 4. Filtering and Querying
-
-- Filter by attribute values (e.g., crop = corn)
-- Filter by time (e.g., year = 2022)
-- Filter by spatial region (viewport or drawn polygon)
-- Combine filters dynamically
-- Server-side filtering for large datasets
-- Incremental visualization updates
-
-### 5. Derived Analysis Views
-
-Switch between visualization modes:
-
-- Raw polygon view
-- Boundary-only view
-- Choropleth (e.g., acreage by region)
-- Heatmap (density of features or attributes)
-- Clustered view (for large datasets)
-
-### 6. Comparison Workflows
-
-- Overlay multiple datasets
-- Compare attributes across layers
-- Visualize differences (e.g., year-over-year changes)
-- Quick layer visibility toggling
-
----
-
-## Use Case: USDA Crop Sequence Boundaries (CSB)
-
-The USDA NASS Crop Sequence Boundaries dataset serves as the primary real-world validation dataset.
-
-Reference: https://www.nass.usda.gov/Research_and_Science/Crop-Sequence-Boundaries/index.php
-
-### Dataset Characteristics
-
-- Millions of polygon features (field boundaries)
-- Multi-year crop sequence attributes
-- Delivered as Shapefile or geodatabase
-- Typically NAD83 or WGS84 CRS
-
-### Objectives
-
-- Validate the ingestion pipeline against large real-world data
-- Support temporal agricultural data analysis
-- Enable visualization of crop history and patterns
-- Stress-test performance and scaling
-
-### CSB Ingestion Pipeline
-
-- Securely download and unpack dataset
-- Detect and parse format
-- Extract geometry, crop sequence attributes, and metadata
-- Normalize CRS
-- Validate geometry and repair topology where safe
-- Store in PostGIS with spatial index
-
-Requirements: chunked ingestion, streaming parsing, memory-safe handling, full provenance preservation.
-
-### Data Model Extensions
-
-Extend SpatialFeature with:
-
-| Field | Description |
-|---|---|
-| crop_sequence | Ordered list of crops by year |
-| primary_crop | Dominant crop type |
-| acreage | Computed area in acres |
-| year_range | Temporal coverage |
-| classification_tags | Derived classification labels |
-
-### CSB-Specific Processing
-
-- Acreage aggregation by crop
-- Temporal filtering
-- Crop rotation detection
-- Clustering by sequence
-- Regional aggregation
-- Intersection with external boundaries
-
-### CSB Visualization
-
-- Polygon rendering of fields
-- Styling by crop, year, or rotation pattern
-- Temporal slider for year-based exploration
-- Animation of crop transitions
-- Choropleth and heatmap views
-- Click inspection (crop history, acreage)
-- Filtering by crop or sequence
-
-### Temporal Exploration
-
-- Select a specific year
-- Scrub through a timeline
-- Animate changes over time
-- Compare two time periods side-by-side
-
-### Example Scenarios
-
-**Agricultural analysis:** User zooms into a county, filters for "corn in 2022", views matching fields, clicks a field to inspect crop history and acreage.
-
-**Multi-year comparison:** User selects 2020 and 2023, compares crop distribution changes via choropleth overlay.
-
-**Regional aggregation:** User zooms to state level, sees total acreage by crop type as aggregated regions.
-
-**Ad-hoc region analysis:** User draws a polygon over a custom area and requests total acreage, crop distribution, and dominant crop patterns.
-
----
-
-## Milestones
-
-### Phase 1 — Foundation
-
-- Project scaffold (monorepo, Docker Compose, CI)
-- GeoJSON ingestion pipeline
-- Canonical data model in PostGIS
-- Basic geometry validation
-- Map rendering with MapLibre
-
-### Phase 2 — Core Platform
-
-- Full PostGIS integration with spatial indexing
-- CRS reprojection
-- Geometry simplification
-- Attribute filtering and spatial queries
-- Export to all supported formats
-
-### Phase 3 — Scale and Analysis
-
-- CSB dataset ingestion and processing
-- Large dataset handling (streaming, chunked ingestion)
-- Vector tile serving via Martin
-- Background processing via Celery
-- Advanced spatial analysis and temporal exploration
-
----
-
-## Definition of Done
-
-### Core Platform
-- Dataset ingestion works for real GIS data in all supported formats
-- Geometry validation is reliable with explicit, traceable repairs
-- Polygons render correctly on map at all zoom levels
-- Spatial queries function correctly
-- Large datasets remain usable via tiling and aggregation
-- Processing is traceable and auditable
-
-### User Experience
-- Users can smoothly zoom and pan across datasets
-- Visualization adapts correctly to scale
-- Filtering updates results dynamically
-- Feature inspection is accurate and responsive
-- Ad-hoc spatial analysis is intuitive and performant
-
-### CSB Validation
-- CSB dataset fully ingested and indexed
-- Temporal exploration works interactively
-- CSB-specific visualization and analysis functional
+- Background processing
+- Vector tiles
+- Export workflows
+- Temporal analysis
+- Dataset comparison
+- Advanced spatial operations
