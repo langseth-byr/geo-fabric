@@ -63,14 +63,80 @@ They should help the team move faster, not create ceremony for its own sake.
 
 ## Security
 
-All incoming files and request data are untrusted.
+All incoming files and request data are untrusted. These rules are informed by
+the [threat model](docs/threat-model/THREAT-MODEL-REPORT.md) and scoped to the
+lean V1 stack.
 
-- Validate file content, not only extensions
-- Enforce upload size limits
-- Guard archive extraction against path traversal
-- Reject unsupported geometry types in V1
-- Use parameterized queries
+### Input Validation
+
+- Validate file content by magic bytes and structure, not file extension
+- Enforce a configurable upload size limit at the ASGI layer
+- Reject unsupported geometry types in V1 (only Polygon and MultiPolygon)
+- Sanitize GeoJSON feature properties at ingestion time — they are rendered in
+  the frontend and must not contain executable content (CT-14)
+
+### Archive Extraction (Shapefiles)
+
+- Reject ZIP entries containing `..` or absolute paths (CT-04)
+- Allow only Shapefile extensions: .shp, .shx, .dbf, .prj, .cpg
+- Enforce maximum extraction size and reject compression ratios above 100:1 to
+  block zip bombs (CT-13)
+- Limit ZIP entry count (Shapefiles have 4-7 files)
+- Extract to an isolated temp directory; validate before moving
+
+### Native Library Isolation
+
+- Run all GIS parsing (Fiona, Shapely, pyproj) in isolated subprocesses with
+  memory and CPU limits (CT-03)
+- Never let a native library crash take down the API process
+- Monitor GDAL, GEOS, and PROJ CVE feeds and update promptly
+
+### Database
+
+- Use parameterized queries via SQLAlchemy — never interpolate user input
+  into SQL strings
+- Set `statement_timeout` on PostgreSQL connections to prevent expensive spatial
+  queries from blocking the database (CT-08)
+- Store database credentials in environment variables, never in code (CT-19)
+
+### API Hardening
+
+- Configure CORS to allow only the frontend origin (CT-16)
+- Set security headers: Content-Security-Policy, X-Content-Type-Options,
+  X-Frame-Options, Strict-Transport-Security (CT-16)
+- Apply per-IP rate limiting on all endpoints, with stricter limits on upload
+  (CT-09)
+- Return structured error responses with stable error codes — never expose
+  internal paths, stack traces, or database details
+
+### Output Encoding
+
+- Never use `dangerouslySetInnerHTML` in React components
+- Encode feature properties when rendering in DOM attributes
+- Rely on React JSX auto-escaping as a baseline, not the only defense
+
+### Shell And Command Execution
+
 - Never pass user input into shell commands
+- No `subprocess.run(shell=True)` with user-controlled arguments
+
+### Logging
+
+- Use structured JSON logging for all security-relevant events: uploads,
+  ingestion results, validation failures, rejected requests (CT-15)
+- Include request metadata (IP, user-agent) in log entries
+- Never log credentials, PII, or internal file paths
+
+### Secrets
+
+- No secrets or credentials in code or version control
+- Use environment variables or a secrets manager
+- Keep raw uploads outside the web root
+
+### Dependency Scanning
+
+- Audit third-party packages for known CVEs before adoption
+- Run pip-audit and npm audit in CI (CT-25)
 
 ## Testing
 

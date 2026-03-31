@@ -126,14 +126,70 @@ The user can:
 
 ## Security Requirements
 
-All uploaded files are untrusted.
+All uploaded files are untrusted. These requirements are derived from the
+[threat model](docs/threat-model/THREAT-MODEL-REPORT.md), scoped to the lean V1
+stack (no GraphQL, Celery, Redis, Martin, or DuckDB).
 
-- Validate file content, not only file extension
-- Enforce upload size limits
-- Reject unsupported geometry types in v1
-- Handle archive extraction carefully for Shapefile uploads
-- Record failures without exposing internal paths or stack traces to users
+### File Upload And Ingestion
+
+- Validate file content by magic bytes and structure, not file extension
+- Enforce a configurable upload size limit (e.g. 500 MB)
+- Stream uploads — do not buffer entire files in memory
+- Reject unsupported geometry types in V1 (only Polygon and MultiPolygon)
+- Sanitize GeoJSON feature properties at ingestion to prevent stored XSS
+  (CT-14)
+
+### Shapefile Archive Safety
+
+- Reject ZIP entries containing path traversal sequences (`..`, absolute paths)
+  (CT-04)
+- Allow only Shapefile extensions (.shp, .shx, .dbf, .prj, .cpg)
+- Enforce maximum extraction size and reject compression ratios above 100:1
+  (CT-13)
+- Limit ZIP entry count to a reasonable maximum (Shapefiles have 4-7 files)
+
+### Native Library Isolation
+
+- Run GIS parsing (Fiona, Shapely, pyproj) in isolated subprocesses with
+  memory and CPU limits (CT-03)
+- A crash in a native library must not take down the API process
+
+### API Protection
+
+- Apply per-IP rate limiting on all endpoints; stricter on upload (CT-09)
+- Configure CORS to allow only the frontend origin (CT-16)
+- Set security headers: CSP, X-Content-Type-Options, X-Frame-Options, HSTS
+  (CT-16)
+- Set PostgreSQL `statement_timeout` to prevent expensive spatial queries from
+  blocking the database (CT-08)
+
+### Error Handling And Logging
+
+- Return structured error responses — never expose internal paths, stack traces,
+  or database details
+- Log security-relevant events (uploads, validation failures, rejected requests)
+  in structured JSON (CT-15)
+- Never log credentials, PII, or internal file paths
+
+### Secrets And Storage
+
+- No secrets in code or version control — use environment variables (CT-19)
 - Keep raw uploads outside the web root
+- Store database credentials in environment variables
+
+### Dependency Management
+
+- Audit third-party packages for known CVEs before adoption
+- Run pip-audit and npm audit in CI (CT-25)
+
+### Authentication And Authorization (Pre-Deployment)
+
+V1 is single-user and local-first. Before any networked or multi-user
+deployment, the following must be implemented:
+
+- OAuth2/OIDC authentication with a proven identity provider (CT-01)
+- Dataset-level ownership and RBAC (CT-02)
+- Audit logging with user identity attribution (CT-15)
 
 ## Success Criteria For V1
 
