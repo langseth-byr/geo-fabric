@@ -1,0 +1,1011 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:05-repo-recon-geofabric-2026-03-31",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-03-31T00:00:00Z",
+    "component": {
+      "type": "application",
+      "name": "GeoFabric",
+      "description": "Full-stack geospatial platform for ingesting, validating, processing, analyzing, and visualizing polygon-based GIS datasets at scale.",
+      "version": "0.0.0-spec-phase"
+    },
+    "tools": [
+      {
+        "name": "Repository Threat Reconnaissance Agent",
+        "version": "2.0"
+      }
+    ],
+    "authors": [
+      {
+        "name": "Threat Model Agent"
+      }
+    ]
+  },
+  "definitions": {
+    "standards": [
+      {
+        "bom-ref": "cdx-threat-model-blueprint-2.0",
+        "name": "CycloneDX Threat Modeling Blueprint",
+        "version": "2.0",
+        "description": "Threat modeling blueprint format for pre-implementation architectural threat analysis"
+      }
+    ]
+  },
+  "properties": [
+    {
+      "name": "cdx:threatModel:type",
+      "value": "repository-reconnaissance"
+    },
+    {
+      "name": "cdx:threatModel:scope",
+      "value": "spec-phase-only"
+    },
+    {
+      "name": "cdx:threatModel:repoState",
+      "value": "No implementation code. Architecture docs, coding conventions, and initial plan only."
+    }
+  ],
+  "components": [
+    {
+      "bom-ref": "asset-react-frontend",
+      "type": "application",
+      "name": "React Frontend",
+      "description": "Browser-based map UI with feature inspection and filtering. React + TypeScript + MapLibre GL JS, optional deck.gl for advanced visualization.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "internet-browser" },
+        { "name": "cdx:asset:technology", "value": "React, TypeScript, MapLibre GL JS, deck.gl" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-graphql-api",
+      "type": "application",
+      "name": "FastAPI / Strawberry GraphQL API",
+      "description": "ASGI application hosting GraphQL endpoint for all data operations: upload, query, mutate. Code-first schema with Pydantic v2 integration.",
+      "version": "FastAPI 0.115+, Strawberry 0.250+, Pydantic 2.x, Uvicorn",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "application" },
+        { "name": "cdx:asset:technology", "value": "Python 3.12+, FastAPI, Strawberry, Pydantic v2, Uvicorn" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-martin",
+      "type": "application",
+      "name": "Martin Tile Server",
+      "version": "0.15+",
+      "description": "Standalone Rust-based vector tile server. Reads directly from PostGIS and serves binary MVT tiles over REST at GET /{layer}/{z}/{x}/{y}.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "application" },
+        { "name": "cdx:asset:technology", "value": "Rust" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-pgbouncer",
+      "type": "application",
+      "name": "PgBouncer",
+      "version": "1.23+",
+      "description": "PostgreSQL connection pooler. Multiplexes up to 10,000 user connections to PostGIS.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "data" },
+        { "name": "cdx:asset:technology", "value": "PgBouncer" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-postgis",
+      "type": "application",
+      "name": "PostGIS",
+      "description": "Spatial data storage, indexing, and query engine. Stores all normalized geometries (EPSG:4326), dataset metadata, features, and ingestion runs.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "data" },
+        { "name": "cdx:asset:technology", "value": "PostgreSQL + PostGIS extension" },
+        { "name": "cdx:asset:dataClassification", "value": "high — contains all geospatial datasets and metadata" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-redis",
+      "type": "application",
+      "name": "Redis",
+      "description": "In-memory data store used for caching expensive spatial query results and Celery job state/broker.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "data" },
+        { "name": "cdx:asset:technology", "value": "Redis" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-celery-workers",
+      "type": "application",
+      "name": "Celery Workers",
+      "version": "Celery 5.x",
+      "description": "Persistent background job processors handling ingestion, spatial processing, and exports. Uses DuckDB within workers for batch spatial processing with larger-than-memory streaming.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "processing" },
+        { "name": "cdx:asset:technology", "value": "Python, Celery 5.x" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-duckdb",
+      "type": "library",
+      "name": "DuckDB + Spatial Extension",
+      "version": "1.2+",
+      "description": "Embedded analytical database used within Celery workers for tabular geospatial data processing. Native GeoParquet read/write, spatial functions, zero-copy reads, larger-than-memory streaming.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "processing" },
+        { "name": "cdx:asset:technology", "value": "DuckDB, C++" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-object-storage",
+      "type": "application",
+      "name": "Object Storage",
+      "description": "S3-compatible or local storage for preserving raw uploaded files with provenance metadata.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "data" },
+        { "name": "cdx:asset:technology", "value": "S3-compatible or local filesystem" },
+        { "name": "cdx:asset:dataClassification", "value": "high — raw untrusted uploads and provenance data" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-cdn",
+      "type": "application",
+      "name": "CDN / Edge Cache",
+      "description": "Edge caching layer (CloudFront, Cloudflare, or similar) in front of Martin for tile requests. Absorbs repeat tile loads from concurrent users.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "dmz-cdn" },
+        { "name": "cdx:asset:technology", "value": "CloudFront, Cloudflare, or similar" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-geospatial-libs",
+      "type": "library",
+      "name": "Native Geospatial Libraries",
+      "description": "Shapely 2.x (wraps GEOS C++), Fiona 1.10+ (wraps GDAL/OGR C/C++), pyproj 3.7+ (wraps PROJ C). These process untrusted user-uploaded geospatial data through native C/C++ code.",
+      "version": "Shapely 2.x, Fiona 1.10+, pyproj 3.7+",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "processing" },
+        { "name": "cdx:asset:technology", "value": "GEOS (C++), GDAL/OGR (C/C++), PROJ (C)" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    },
+    {
+      "bom-ref": "asset-sqlalchemy",
+      "type": "library",
+      "name": "SQLAlchemy + GeoAlchemy2 + Alembic",
+      "version": "SQLAlchemy 2.x, GeoAlchemy2 0.15+",
+      "description": "ORM with PostGIS geometry column support and database migration tooling.",
+      "properties": [
+        { "name": "cdx:asset:zone", "value": "application" },
+        { "name": "cdx:asset:status", "value": "planned" }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "bom-ref": "actor-end-user",
+      "name": "End User (Browser)",
+      "description": "Human user interacting with the React frontend via a web browser. Uploads datasets, explores maps, inspects features, filters by attributes.",
+      "properties": [
+        { "name": "cdx:actor:type", "value": "external" },
+        { "name": "cdx:actor:trustLevel", "value": "untrusted" }
+      ]
+    },
+    {
+      "bom-ref": "actor-api-consumer",
+      "name": "API Consumer",
+      "description": "Programmatic client consuming the GraphQL API directly (not via the React frontend). Could be third-party integrations or scripts.",
+      "properties": [
+        { "name": "cdx:actor:type", "value": "external" },
+        { "name": "cdx:actor:trustLevel", "value": "untrusted" }
+      ]
+    },
+    {
+      "bom-ref": "actor-administrator",
+      "name": "Administrator",
+      "description": "System administrator managing infrastructure, Docker Compose, database migrations, and deployment. No admin interface is defined in the spec.",
+      "properties": [
+        { "name": "cdx:actor:type", "value": "internal" },
+        { "name": "cdx:actor:trustLevel", "value": "trusted" }
+      ]
+    },
+    {
+      "bom-ref": "actor-celery-worker",
+      "name": "Celery Worker (Internal Service)",
+      "description": "Background worker process executing ingestion, spatial processing, and export tasks. Communicates with Redis (broker), PostGIS (storage), and Object Storage (raw files).",
+      "properties": [
+        { "name": "cdx:actor:type", "value": "internal-service" },
+        { "name": "cdx:actor:trustLevel", "value": "semi-trusted — processes untrusted data" }
+      ]
+    },
+    {
+      "bom-ref": "actor-martin",
+      "name": "Martin (Internal Service)",
+      "description": "Rust-based tile server with direct read access to PostGIS. Serves vector tiles to CDN and browsers.",
+      "properties": [
+        { "name": "cdx:actor:type", "value": "internal-service" },
+        { "name": "cdx:actor:trustLevel", "value": "semi-trusted — direct database read access" }
+      ]
+    }
+  ],
+  "externalReferences": [
+    {
+      "type": "threat-model",
+      "url": "docs/threat-model/05-repo-recon.json",
+      "comment": "This file — repository reconnaissance threat model"
+    }
+  ],
+  "vulnerabilities": [
+    {
+      "bom-ref": "RECON-01",
+      "id": "RECON-01",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "critical",
+          "method": "other",
+          "justification": "No authentication mechanism is specified in INITIAL-PLAN.md, ARCHITECTURE.md, CODING-CONVENTIONS.md, or any other document. The GraphQL API, Martin tile server, and all endpoints are implicitly open to anonymous access. At 10,000 concurrent users this is a critical gap."
+        }
+      ],
+      "cwes": [306],
+      "description": "No authentication architecture specified in any document. There is no mention of session management, token-based auth (JWT, OAuth2, OIDC), API keys, or any identity provider. All API endpoints, including dataset upload mutations, are accessible without authentication.",
+      "detail": "Searched all repository documents: INITIAL-PLAN.md, ARCHITECTURE.md, CODING-CONVENTIONS.md, CLAUDE.md, README.md, and REQUIREMENT-TEMPLATE.md. Zero references to authentication, login, session, token, JWT, OAuth, OIDC, or identity provider. The system plans to support 10,000 concurrent users with file upload capability and no access control.",
+      "recommendation": "Define an authentication architecture before implementation begins. Recommended: OIDC/OAuth2 with a managed identity provider. Implement at the FastAPI middleware layer. Martin tile endpoints need either token validation or network-level restriction.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-01" },
+        { "name": "cdx:threat:title", "value": "No authentication architecture specified" },
+        { "name": "cdx:threat:category", "value": "Authentication" },
+        { "name": "cdx:threat:severity", "value": "critical" },
+        { "name": "cdx:threat:likelihood", "value": "certain — no auth means guaranteed anonymous access" },
+        { "name": "cdx:threat:impact", "value": "critical — unauthorized data access, upload, modification, and deletion" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-martin, asset-postgis, asset-object-storage" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Define OIDC/OAuth2 authentication architecture. 2. Add FastAPI auth middleware. 3. Protect Martin with auth proxy or network policy. 4. Add authentication requirements to INITIAL-PLAN.md and ARCHITECTURE.md." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-martin" },
+        { "ref": "asset-postgis" },
+        { "ref": "asset-object-storage" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-02",
+      "id": "RECON-02",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "critical",
+          "method": "other",
+          "justification": "No authorization model defined anywhere in the repository. No RBAC, no ownership model, no access control checks. Any authenticated user (once auth is added) would have full access to all datasets, features, and operations."
+        }
+      ],
+      "cwes": [862],
+      "description": "No authorization model defined — no RBAC, no ownership checks, no tenant isolation. The data model includes datasets and features but no user/owner/role columns. All mutations (upload, delete, reproject, simplify, intersect, export) have no documented access control.",
+      "detail": "The Dataset model has no owner_id, tenant_id, or any user-association field. No roles, permissions, or access control lists are defined. The GraphQL schema plans mutations for delete and modify operations with no authorization checks specified. Multi-tenant scaling is listed as a non-goal for V1 but no single-tenant authorization is specified either.",
+      "recommendation": "1. Add owner_id/created_by to the Dataset model. 2. Define an authorization model (at minimum: users own their datasets, only owners can modify/delete). 3. Document RBAC roles if admin operations are planned. 4. Implement authorization checks at the GraphQL resolver level.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-02" },
+        { "name": "cdx:threat:title", "value": "No authorization model defined" },
+        { "name": "cdx:threat:category", "value": "Authorization" },
+        { "name": "cdx:threat:severity", "value": "critical" },
+        { "name": "cdx:threat:likelihood", "value": "certain — no authz means any user can access/modify any resource" },
+        { "name": "cdx:threat:impact", "value": "critical — data tampering, unauthorized deletion, data exfiltration across users" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-postgis, asset-object-storage" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Add user/owner association to data model. 2. Define RBAC roles. 3. Implement per-resolver authorization checks. 4. Add row-level security in PostGIS for defense in depth." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-postgis" },
+        { "ref": "asset-object-storage" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-03",
+      "id": "RECON-03",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "File upload processes untrusted geospatial data through GDAL (C/C++), GEOS (C++), and PROJ (C). Memory corruption vulnerabilities in these libraries are well-documented (CVE history for GDAL, GEOS). A crafted Shapefile or GeoJSON could trigger buffer overflows or arbitrary code execution in native code."
+        }
+      ],
+      "cwes": [676, 20],
+      "description": "File upload pipeline processes untrusted user data through native C/C++ libraries (GDAL/OGR via Fiona, GEOS via Shapely, PROJ via pyproj). These libraries have historical CVEs for memory corruption when processing malformed geospatial files.",
+      "detail": "ARCHITECTURE.md specifies: Shapely 2.x (wraps GEOS C++), Fiona 1.10+ (wraps GDAL/OGR C/C++), pyproj 3.7+ (wraps PROJ C). The ingestion pipeline parses untrusted uploads through these native libraries. CODING-CONVENTIONS.md mentions 'Isolate native GIS tooling (GDAL/OGR) in subprocesses' as a convention, but no implementation details, sandboxing, seccomp profiles, or resource limits are specified.",
+      "recommendation": "1. Run GDAL/Fiona parsing in isolated subprocesses with resource limits (memory, CPU time). 2. Apply seccomp or AppArmor profiles to restrict syscalls. 3. Run parsing in a minimal container with no network access. 4. Pin and audit GDAL/GEOS/PROJ versions against known CVEs. 5. Implement fuzzing in the Slow test tier targeting native library inputs.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-03" },
+        { "name": "cdx:threat:title", "value": "Untrusted data processed through native C/C++ geospatial libraries" },
+        { "name": "cdx:threat:category", "value": "Input Validation / Memory Safety" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "medium — requires crafted malicious input, but attack surface is large" },
+        { "name": "cdx:threat:impact", "value": "high — potential remote code execution via memory corruption in native libraries" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-geospatial-libs, asset-celery-workers, asset-graphql-api" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 10: 'Safely parse GIS formats (isolate native tooling in subprocesses)'. INITIAL-PLAN.md: 'Validate file content, not only file extension'. CODING-CONVENTIONS.md: 'Celery tasks must have max runtime timeouts'." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Implement subprocess isolation with resource limits (ulimit). 2. Add seccomp/AppArmor profiles. 3. Run parsing in network-isolated containers. 4. Pin and CVE-audit native library versions. 5. Add fuzz testing for native library inputs in Slow test tier." }
+      ],
+      "affects": [
+        { "ref": "asset-geospatial-libs" },
+        { "ref": "asset-celery-workers" },
+        { "ref": "asset-graphql-api" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-04",
+      "id": "RECON-04",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "Shapefile ingestion requires ZIP extraction. Path traversal prevention is mentioned as a convention but no specific implementation (e.g., ZipFile member name validation, target directory canonicalization) is documented."
+        }
+      ],
+      "cwes": [22],
+      "description": "Shapefile ZIP extraction without documented path traversal prevention implementation. CODING-CONVENTIONS.md mentions 'Prevent path traversal during archive extraction' as a rule, and INITIAL-PLAN.md says 'Handle archive extraction carefully for Shapefile uploads', but no specific technique (e.g., reject entries with '..', canonicalize paths, use extractall with controlled target) is specified.",
+      "detail": "Shapefiles consist of multiple files (.shp, .shx, .dbf, .prj, etc.) typically delivered in a ZIP archive. A malicious ZIP could contain entries with path traversal sequences (../../etc/passwd) or symbolic links. The convention mentions the risk but does not specify the defense mechanism.",
+      "recommendation": "1. Validate all ZIP entry names before extraction: reject entries containing '..', absolute paths, or symbolic links. 2. Canonicalize the extraction target directory and verify all extracted paths remain within it. 3. Set maximum extracted file count and total size limits. 4. Add specific test fixtures for path traversal ZIP files in the Fast test tier.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-04" },
+        { "name": "cdx:threat:title", "value": "Shapefile ZIP extraction path traversal risk" },
+        { "name": "cdx:threat:category", "value": "Input Validation / Path Traversal" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "medium — requires intentionally crafted ZIP, but trivial to construct" },
+        { "name": "cdx:threat:impact", "value": "high — arbitrary file write on the server, potential code execution" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-celery-workers, asset-object-storage" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 10: 'Prevent path traversal during archive extraction'. INITIAL-PLAN.md: 'Handle archive extraction carefully for Shapefile uploads'. INITIAL-PLAN.md: 'Keep raw uploads outside the web root'." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Validate ZIP entry names — reject '..', absolute paths, symlinks. 2. Canonicalize extraction target directory. 3. Limit extracted file count and total size. 4. Add path traversal test fixtures." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-celery-workers" },
+        { "ref": "asset-object-storage" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-05",
+      "id": "RECON-05",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "Redis is used as both a cache and Celery broker but no authentication configuration (requirepass, ACLs, TLS) is documented. An attacker with network access to Redis could read cached data, inject Celery tasks, or flush the cache."
+        }
+      ],
+      "cwes": [287],
+      "description": "Redis is mentioned as a caching layer and Celery broker without any authentication configuration documented. No requirepass, no Redis ACLs, no TLS for Redis connections. If Redis is network-accessible, it is completely open.",
+      "detail": "ARCHITECTURE.md lists Redis for 'caching and job state'. Celery uses Redis as its broker. No document specifies Redis authentication, network isolation, or encrypted connections. Docker Compose is mentioned for local dev but production Redis configuration is not addressed.",
+      "recommendation": "1. Configure Redis AUTH (requirepass) at minimum. 2. Use Redis 6+ ACLs for per-service access control. 3. Enable TLS for Redis connections. 4. Bind Redis to internal-only network interfaces. 5. Document Redis security configuration in ARCHITECTURE.md.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-05" },
+        { "name": "cdx:threat:title", "value": "Redis without authentication configuration" },
+        { "name": "cdx:threat:category", "value": "Authentication / Infrastructure" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "medium — depends on network exposure; Docker Compose local dev may be isolated but production is unspecified" },
+        { "name": "cdx:threat:impact", "value": "high — unauthorized cache manipulation, Celery task injection, data exfiltration" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-redis, asset-celery-workers, asset-graphql-api" },
+        { "name": "cdx:threat:existingControls", "value": "None identified. Docker Compose provides some network isolation in local dev." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Enable Redis AUTH. 2. Use Redis 6+ ACLs. 3. Enable TLS for Redis connections. 4. Bind to internal interfaces only. 5. Document configuration." }
+      ],
+      "affects": [
+        { "ref": "asset-redis" },
+        { "ref": "asset-celery-workers" },
+        { "ref": "asset-graphql-api" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-06",
+      "id": "RECON-06",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "No rate limiting is specified on any endpoint. The system plans for 10,000 concurrent users with file upload capability. Without rate limiting, resource exhaustion attacks on upload, GraphQL queries, and tile requests are trivial."
+        }
+      ],
+      "cwes": [770],
+      "description": "No rate limiting on any endpoint. The GraphQL API accepts file uploads and complex spatial queries. Martin serves tiles. Neither service has documented rate limiting, throttling, or request quotas.",
+      "detail": "Searched all documents for 'rate limit', 'throttle', 'quota', or 'request limit'. No results. The system targets 10,000 concurrent users with expensive operations (spatial queries, file uploads, geometry processing). Without rate limiting, a single malicious actor can exhaust server resources.",
+      "recommendation": "1. Implement rate limiting at the API gateway or FastAPI middleware level. 2. Set per-IP and per-user request rate limits. 3. Apply stricter limits to expensive operations (uploads, spatial processing mutations). 4. Configure CDN rate limiting for tile requests. 5. Add rate limiting requirements to ARCHITECTURE.md.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-06" },
+        { "name": "cdx:threat:title", "value": "No rate limiting on any endpoint" },
+        { "name": "cdx:threat:category", "value": "Availability / Denial of Service" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "high — trivial to execute, no tooling required" },
+        { "name": "cdx:threat:impact", "value": "high — service degradation or outage for all 10,000 planned concurrent users" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-martin, asset-cdn, asset-postgis" },
+        { "name": "cdx:threat:existingControls", "value": "ARCHITECTURE.md mentions CDN edge caching for tile requests (absorbs repeat loads). CODING-CONVENTIONS.md: 'Enforce size limits at the ASGI layer' (upload size only)." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Implement API gateway rate limiting. 2. Per-IP and per-user quotas. 3. Stricter limits on uploads and mutations. 4. CDN-level rate limiting for tiles. 5. Document in ARCHITECTURE.md." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-martin" },
+        { "ref": "asset-cdn" },
+        { "ref": "asset-postgis" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-07",
+      "id": "RECON-07",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "GraphQL introspection and complexity limits are mentioned as a coding convention but not enforced in architecture. Strawberry does not enforce these by default. Without implementation, deeply nested or highly complex queries can cause denial of service."
+        }
+      ],
+      "cwes": [400],
+      "description": "GraphQL introspection and complexity limits not enforced — only mentioned as a convention. CODING-CONVENTIONS.md states 'Query depth and complexity limits enforced at the gateway layer' and 'GraphQL query depth and complexity limits' but no specific values, enforcement mechanism, or Strawberry extension configuration is specified.",
+      "detail": "Strawberry GraphQL does not enforce query depth or complexity limits by default. These require explicit extensions (e.g., QueryDepthLimiter, custom cost analysis). The convention mentions enforcement 'at the gateway layer' but no gateway is defined in the architecture. Without enforcement, an attacker can craft deeply nested or highly complex queries to exhaust server resources. GraphQL introspection being enabled by default also exposes the full schema to attackers.",
+      "recommendation": "1. Configure Strawberry QueryDepthLimiter extension with a specific max depth. 2. Implement query cost/complexity analysis. 3. Disable introspection in production. 4. Document specific limits in ARCHITECTURE.md (e.g., max depth 10, max complexity 1000). 5. Add tests for rejected over-complex queries.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-07" },
+        { "name": "cdx:threat:title", "value": "GraphQL introspection and complexity limits not enforced" },
+        { "name": "cdx:threat:category", "value": "Availability / Information Disclosure" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "high — GraphQL abuse tools are widely available" },
+        { "name": "cdx:threat:impact", "value": "high — denial of service via resource exhaustion; schema disclosure aids further attacks" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-postgis" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 10: 'GraphQL query depth and complexity limits'. CODING-CONVENTIONS.md Section 13: 'Query depth and complexity limits enforced at the gateway layer'. These are stated as conventions but no enforcement mechanism is configured." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Configure Strawberry QueryDepthLimiter. 2. Implement query cost analysis. 3. Disable introspection in production. 4. Specify concrete limits in ARCHITECTURE.md. 5. Test over-complex query rejection." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-postgis" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-08",
+      "id": "RECON-08",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "Martin tile server has direct PostGIS read access with no documented access controls. Martin reads directly from PostGIS to serve tiles. If Martin is compromised or misconfigured, it can read any data in PostGIS including datasets that should be access-controlled."
+        }
+      ],
+      "cwes": [284],
+      "description": "Martin has direct PostGIS read access with no documented access controls. The architecture diagram shows Martin connecting directly to PostGIS (via PgBouncer) to serve vector tiles. No row-level security, restricted database views, or read-only user configuration is documented.",
+      "detail": "ARCHITECTURE.md states Martin 'reads directly from PostGIS' and serves tiles via 'GET /{layer}/{z}/{x}/{y}'. The tile endpoint is REST-based and CDN-cached. No document specifies: a dedicated read-only PostgreSQL role for Martin, restricted views limiting which tables/rows Martin can access, or network-level access controls between Martin and PostGIS. If authorization is added later, Martin would bypass it entirely since it reads directly from the database.",
+      "recommendation": "1. Create a dedicated read-only PostgreSQL role for Martin with access only to required tables/views. 2. Use database views to limit Martin's data access (e.g., only published/public datasets). 3. Implement row-level security in PostGIS. 4. Document Martin's database access scope in ARCHITECTURE.md.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-08" },
+        { "name": "cdx:threat:title", "value": "Martin has unrestricted direct PostGIS read access" },
+        { "name": "cdx:threat:category", "value": "Authorization / Data Access" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "high — Martin always has direct DB access by design" },
+        { "name": "cdx:threat:impact", "value": "high — exposure of all geospatial data through tile endpoint, bypassing any application-level access controls" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-martin, asset-postgis, asset-pgbouncer" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Create read-only PostgreSQL role for Martin. 2. Use database views to limit data access. 3. Implement row-level security. 4. Document access scope." }
+      ],
+      "affects": [
+        { "ref": "asset-martin" },
+        { "ref": "asset-postgis" },
+        { "ref": "asset-pgbouncer" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-09",
+      "id": "RECON-09",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "No TLS or mTLS for inter-service communication is documented. API-to-PostGIS, API-to-Redis, Martin-to-PostGIS, Celery-to-Redis, and Celery-to-PostGIS connections are all unencrypted by default. In a containerized environment, this enables network-level data interception."
+        }
+      ],
+      "cwes": [319],
+      "description": "No TLS/mTLS for inter-service communication documented. All internal connections (API to PostGIS via PgBouncer, API to Redis, Martin to PostGIS, Celery to Redis, Celery to PostGIS) use unencrypted protocols by default.",
+      "detail": "No document mentions TLS, SSL, mTLS, or encrypted connections for any internal service. Docker Compose provides network isolation in local dev, but production deployment is not addressed. Database credentials, cached data, and Celery task payloads transit in cleartext.",
+      "recommendation": "1. Enable TLS for PostgreSQL/PgBouncer connections. 2. Enable TLS for Redis connections. 3. Consider mTLS for service-to-service communication. 4. Document TLS configuration requirements in ARCHITECTURE.md. 5. Use encrypted Docker overlay networks or a service mesh in production.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-09" },
+        { "name": "cdx:threat:title", "value": "No TLS/mTLS for inter-service communication" },
+        { "name": "cdx:threat:category", "value": "Transport Security" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "medium — requires network access to internal segments" },
+        { "name": "cdx:threat:impact", "value": "high — credential interception, data exfiltration, session hijacking" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-martin, asset-postgis, asset-pgbouncer, asset-redis, asset-celery-workers" },
+        { "name": "cdx:threat:existingControls", "value": "Docker Compose provides network isolation for local development only." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. TLS for PostgreSQL/PgBouncer. 2. TLS for Redis. 3. Consider mTLS. 4. Document TLS requirements. 5. Encrypted overlay networks in production." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-martin" },
+        { "ref": "asset-postgis" },
+        { "ref": "asset-pgbouncer" },
+        { "ref": "asset-redis" },
+        { "ref": "asset-celery-workers" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-10",
+      "id": "RECON-10",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "high",
+          "method": "other",
+          "justification": "Celery 5.x defaults to JSON serializer but supports pickle. If not explicitly configured to reject pickle, a compromised Redis broker could inject pickle-serialized tasks leading to arbitrary code execution on workers."
+        }
+      ],
+      "cwes": [502],
+      "description": "Celery pickle deserialization risk not addressed. Celery 5.x supports multiple serializers including pickle. If the serializer is not explicitly restricted to JSON, a compromised Redis broker (see RECON-05) could inject pickle-serialized task messages, leading to arbitrary code execution on Celery workers.",
+      "detail": "ARCHITECTURE.md specifies 'Celery + Redis — persistent background jobs'. CODING-CONVENTIONS.md mentions 'Celery tasks must have max runtime timeouts' and idempotency but does not address serializer configuration. Celery's accept_content and task_serializer settings are not documented. Default Celery 5.x uses JSON but accepts all formats unless restricted.",
+      "recommendation": "1. Explicitly set task_serializer='json' and accept_content=['json'] in Celery configuration. 2. Reject pickle serialization. 3. Document Celery security configuration. 4. Add a test verifying pickle tasks are rejected.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-10" },
+        { "name": "cdx:threat:title", "value": "Celery pickle deserialization risk" },
+        { "name": "cdx:threat:category", "value": "Deserialization / Code Execution" },
+        { "name": "cdx:threat:severity", "value": "high" },
+        { "name": "cdx:threat:likelihood", "value": "medium — requires broker compromise (see RECON-05) or network access" },
+        { "name": "cdx:threat:impact", "value": "critical — arbitrary code execution on worker nodes" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-celery-workers, asset-redis" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 9: 'Celery tasks: Explicit timeout on every task'. CODING-CONVENTIONS.md Section 10: 'Celery tasks must have max runtime timeouts'. No serializer restriction documented." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Set task_serializer='json' and accept_content=['json']. 2. Reject pickle serialization explicitly. 3. Document Celery security settings. 4. Test that pickle tasks are rejected." }
+      ],
+      "affects": [
+        { "ref": "asset-celery-workers" },
+        { "ref": "asset-redis" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-11",
+      "id": "RECON-11",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "medium",
+          "method": "other",
+          "justification": "No CORS or CSP configuration is documented. The React frontend communicates with the GraphQL API. Without proper CORS configuration, the API may accept cross-origin requests from malicious sites. Without CSP, the frontend is more vulnerable to XSS attacks."
+        }
+      ],
+      "cwes": [942, 1021],
+      "description": "No CORS or Content Security Policy configuration documented. The React frontend communicates with the FastAPI GraphQL backend. Neither CORS origins, methods, headers, nor Content-Security-Policy headers are specified in any document.",
+      "detail": "FastAPI supports CORSMiddleware but no CORS configuration is mentioned. No CSP headers are documented for the frontend. The architecture includes a CDN layer which could also apply security headers, but this is not specified.",
+      "recommendation": "1. Configure FastAPI CORSMiddleware with explicit allowed origins (not wildcard). 2. Define and enforce a Content-Security-Policy header for the frontend. 3. Add X-Content-Type-Options, X-Frame-Options, and Strict-Transport-Security headers. 4. Document security headers in ARCHITECTURE.md.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-11" },
+        { "name": "cdx:threat:title", "value": "No CORS or CSP configuration documented" },
+        { "name": "cdx:threat:category", "value": "Browser Security" },
+        { "name": "cdx:threat:severity", "value": "medium" },
+        { "name": "cdx:threat:likelihood", "value": "medium — cross-origin attacks are common" },
+        { "name": "cdx:threat:impact", "value": "medium — cross-site request forgery, XSS amplification, clickjacking" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-react-frontend, asset-graphql-api, asset-cdn" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Configure CORSMiddleware with explicit origins. 2. Define CSP header. 3. Add standard security headers. 4. Document in ARCHITECTURE.md." }
+      ],
+      "affects": [
+        { "ref": "asset-react-frontend" },
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-cdn" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-12",
+      "id": "RECON-12",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "medium",
+          "method": "other",
+          "justification": "No encryption at rest is documented for PostGIS or object storage. Geospatial datasets may contain sensitive location data (agricultural field boundaries, property data). Disk-level encryption is not addressed."
+        }
+      ],
+      "cwes": [311],
+      "description": "No encryption at rest for PostGIS or object storage. Raw uploaded files are stored in S3-compatible or local object storage. Normalized geospatial data is stored in PostGIS. Neither storage layer has documented encryption at rest.",
+      "detail": "ARCHITECTURE.md specifies 'Object storage (S3-compatible or local) — raw uploaded files' and 'PostGIS — spatial data storage'. No document mentions encryption at rest, disk encryption, S3 server-side encryption (SSE), or PostgreSQL transparent data encryption (TDE). The data includes geospatial datasets that may have commercial or privacy sensitivity.",
+      "recommendation": "1. Enable S3 server-side encryption (SSE-S3 or SSE-KMS) for object storage. 2. Use encrypted volumes for PostGIS data. 3. Document encryption at rest requirements in ARCHITECTURE.md. 4. Classify data sensitivity levels.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-12" },
+        { "name": "cdx:threat:title", "value": "No encryption at rest for storage layers" },
+        { "name": "cdx:threat:category", "value": "Data Protection" },
+        { "name": "cdx:threat:severity", "value": "medium" },
+        { "name": "cdx:threat:likelihood", "value": "low — requires physical or administrative access to storage" },
+        { "name": "cdx:threat:impact", "value": "high — exposure of all geospatial datasets and raw uploads" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-postgis, asset-object-storage" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Enable S3 SSE. 2. Encrypted volumes for PostGIS. 3. Document encryption requirements. 4. Classify data sensitivity." }
+      ],
+      "affects": [
+        { "ref": "asset-postgis" },
+        { "ref": "asset-object-storage" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-13",
+      "id": "RECON-13",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "medium",
+          "method": "other",
+          "justification": "Feature properties are stored as JSON from untrusted uploads and rendered in the frontend for feature inspection. If properties contain HTML or JavaScript, they could trigger XSS when rendered without proper encoding."
+        }
+      ],
+      "cwes": [79],
+      "description": "Feature properties stored as JSON — potential stored XSS when rendered in frontend. The data model stores source attributes as JSON in the Feature.properties column. These properties come from untrusted uploaded files (GeoJSON properties, Shapefile DBF fields) and are rendered in the React frontend for feature inspection.",
+      "detail": "INITIAL-PLAN.md data model: Feature has 'properties' field described as 'Source attributes as JSON'. The React frontend allows users to 'Click a feature to inspect properties'. GeoJSON properties can contain arbitrary string values including HTML/JavaScript. If the frontend renders these without proper output encoding, stored XSS is possible.",
+      "recommendation": "1. Sanitize or HTML-encode all feature properties before rendering in the frontend. 2. Use React's default JSX escaping (do not use dangerouslySetInnerHTML). 3. Validate/restrict property value types during ingestion (reject or escape HTML). 4. Add CSP to mitigate impact. 5. Add XSS test fixtures with HTML in GeoJSON properties.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-13" },
+        { "name": "cdx:threat:title", "value": "Stored XSS via feature properties from untrusted uploads" },
+        { "name": "cdx:threat:category", "value": "Cross-Site Scripting" },
+        { "name": "cdx:threat:severity", "value": "medium" },
+        { "name": "cdx:threat:likelihood", "value": "medium — trivial to embed HTML/JS in GeoJSON properties" },
+        { "name": "cdx:threat:impact", "value": "medium — session hijacking, data theft, UI manipulation for other users" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-react-frontend, asset-graphql-api, asset-postgis" },
+        { "name": "cdx:threat:existingControls", "value": "React's default JSX escaping prevents basic XSS if used correctly. CODING-CONVENTIONS.md: 'No backend internals or PostGIS types exposed to frontend' (limits data exposure but does not address property content)." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Sanitize/encode feature properties on render. 2. Never use dangerouslySetInnerHTML for user data. 3. Validate property types during ingestion. 4. Add CSP. 5. Add XSS test fixtures." }
+      ],
+      "affects": [
+        { "ref": "asset-react-frontend" },
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-postgis" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-14",
+      "id": "RECON-14",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "medium",
+          "method": "other",
+          "justification": "No data retention or deletion policies are documented. Raw uploaded files are preserved indefinitely. No mechanism for dataset deletion cleanup (orphaned files, cached tiles, Redis entries) is specified."
+        }
+      ],
+      "cwes": [459],
+      "description": "No data retention or deletion policies defined. The system preserves raw uploaded files and stores normalized data indefinitely. No lifecycle management, automatic cleanup, or deletion cascade (raw file + PostGIS features + cached tiles + Redis entries) is documented.",
+      "detail": "INITIAL-PLAN.md lists 'Preserve the raw uploaded file and provenance metadata' as a V1 goal. The GraphQL API plans a 'delete' mutation but no document specifies what deletion entails (soft delete vs. hard delete, cascade to object storage, cache invalidation, audit logging). No data retention period is defined.",
+      "recommendation": "1. Define data retention policies for raw uploads and processed data. 2. Implement cascading deletion (PostGIS features + object storage + Redis cache + CDN invalidation). 3. Consider soft delete with configurable retention period. 4. Add audit logging for deletion operations. 5. Document retention policy.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-14" },
+        { "name": "cdx:threat:title", "value": "No data retention or deletion policies" },
+        { "name": "cdx:threat:category", "value": "Data Lifecycle / Compliance" },
+        { "name": "cdx:threat:severity", "value": "medium" },
+        { "name": "cdx:threat:likelihood", "value": "high — data accumulates without bound" },
+        { "name": "cdx:threat:impact", "value": "medium — storage cost growth, stale data exposure, compliance risk, incomplete deletion" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-postgis, asset-object-storage, asset-redis, asset-cdn" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Define retention policies. 2. Implement cascading deletion. 3. Consider soft delete. 4. Audit log deletions. 5. Document policy." }
+      ],
+      "affects": [
+        { "ref": "asset-postgis" },
+        { "ref": "asset-object-storage" },
+        { "ref": "asset-redis" },
+        { "ref": "asset-cdn" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-15",
+      "id": "RECON-15",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "medium",
+          "method": "other",
+          "justification": "PgBouncer connection pooling authentication is not documented. Multiple services (API, Martin, Celery workers) connect through PgBouncer. Without per-service authentication and connection limits, a compromised service can exhaust the pool or access data beyond its scope."
+        }
+      ],
+      "cwes": [287],
+      "description": "PgBouncer connection pooling authentication not documented. PgBouncer 1.23+ is specified as the connection pooler but no authentication mode (md5, scram-sha-256, cert), per-service database users, or connection limits per pool are documented.",
+      "detail": "ARCHITECTURE.md lists PgBouncer for 'connection pooling' to 'multiplex 10K user connections to PostGIS'. Multiple services connect through it: the GraphQL API, Martin, and Celery workers. No document specifies separate database roles per service, PgBouncer auth_type configuration, or per-pool connection limits.",
+      "recommendation": "1. Configure PgBouncer with scram-sha-256 authentication. 2. Create separate PostgreSQL roles per service (api_user, martin_user, celery_user) with least-privilege access. 3. Set per-pool connection limits. 4. Document PgBouncer configuration in ARCHITECTURE.md.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-15" },
+        { "name": "cdx:threat:title", "value": "PgBouncer authentication not documented" },
+        { "name": "cdx:threat:category", "value": "Authentication / Infrastructure" },
+        { "name": "cdx:threat:severity", "value": "medium" },
+        { "name": "cdx:threat:likelihood", "value": "medium — depends on network exposure and service compromise" },
+        { "name": "cdx:threat:impact", "value": "medium — unauthorized database access, connection pool exhaustion" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-pgbouncer, asset-postgis" },
+        { "name": "cdx:threat:existingControls", "value": "None identified" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Configure scram-sha-256 auth. 2. Separate PostgreSQL roles per service. 3. Per-pool connection limits. 4. Document configuration." }
+      ],
+      "affects": [
+        { "ref": "asset-pgbouncer" },
+        { "ref": "asset-postgis" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-16",
+      "id": "RECON-16",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "medium",
+          "method": "other",
+          "justification": "DuckDB spatial extension runs native C++ code on untrusted GeoParquet files within Celery workers. A crafted GeoParquet file could exploit vulnerabilities in DuckDB's Parquet reader or spatial extension to achieve code execution on worker nodes."
+        }
+      ],
+      "cwes": [676, 20],
+      "description": "DuckDB spatial extension runs native code on untrusted GeoParquet data. DuckDB 1.2+ with its spatial extension processes user-uploaded GeoParquet files within Celery workers. The spatial extension and Parquet reader are native C++ code processing untrusted input.",
+      "detail": "ARCHITECTURE.md specifies 'DuckDB + spatial extension — tabular geospatial data processing via SQL. Larger-than-memory streaming, native GeoParquet read/write, spatial functions'. DuckDB is used within Celery workers for batch processing. GeoParquet is a planned ingestion format. The DuckDB spatial extension is relatively new (listed as LOW maturity risk in ARCHITECTURE.md's risk table) and processes untrusted data through native code.",
+      "recommendation": "1. Run DuckDB processing in isolated subprocesses with resource limits. 2. Validate GeoParquet file structure before DuckDB ingestion. 3. Monitor DuckDB CVEs closely given spatial extension maturity. 4. Apply the same isolation principles as GDAL/Fiona (RECON-03). 5. Include DuckDB spatial in fuzz testing.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-16" },
+        { "name": "cdx:threat:title", "value": "DuckDB spatial extension processes untrusted native data" },
+        { "name": "cdx:threat:category", "value": "Input Validation / Memory Safety" },
+        { "name": "cdx:threat:severity", "value": "medium" },
+        { "name": "cdx:threat:likelihood", "value": "low — DuckDB has fewer known CVEs than GDAL, but spatial extension is newer and less battle-tested" },
+        { "name": "cdx:threat:impact", "value": "high — potential code execution on worker nodes" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-duckdb, asset-celery-workers" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 11: 'DuckDB: batch processing only, never for serving; parameterized queries only'. ARCHITECTURE.md risk table: 'DuckDB spatial extension maturity — LOW — PostGIS is authoritative for serving. DuckDB for batch only. Convert to Shapely for edge cases.'" },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Isolated subprocesses with resource limits. 2. Validate GeoParquet structure pre-ingestion. 3. Monitor DuckDB CVEs. 4. Apply GDAL-equivalent isolation. 5. Fuzz test DuckDB spatial inputs." }
+      ],
+      "affects": [
+        { "ref": "asset-duckdb" },
+        { "ref": "asset-celery-workers" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-17",
+      "id": "RECON-17",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "low",
+          "method": "other",
+          "justification": "No dependency vulnerability scanning (Dependabot, Snyk, pip-audit, npm audit) is configured. CODING-CONVENTIONS.md mentions auditing third-party packages for CVEs but no automated scanning is set up."
+        }
+      ],
+      "cwes": [1104],
+      "description": "No dependency vulnerability scanning configured. The project depends on numerous third-party packages including native C/C++ libraries (GDAL, GEOS, PROJ, DuckDB). CODING-CONVENTIONS.md states 'Audit all third-party packages for known CVEs before adoption' but no automated scanning tool is configured.",
+      "detail": "Searched repository for .github/dependabot.yml, .snyk, pip-audit configuration, or npm audit scripts. None found. The project has significant native dependency surface (GDAL, GEOS, PROJ, DuckDB) where CVEs can have critical impact (memory corruption, code execution).",
+      "recommendation": "1. Enable GitHub Dependabot for Python and JavaScript dependencies. 2. Add pip-audit to CI pipeline. 3. Add npm audit to CI pipeline. 4. Configure alerts for native library CVEs (GDAL, GEOS, PROJ). 5. Pin all dependency versions and review updates.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-17" },
+        { "name": "cdx:threat:title", "value": "No dependency vulnerability scanning configured" },
+        { "name": "cdx:threat:category", "value": "Supply Chain / Dependency Management" },
+        { "name": "cdx:threat:severity", "value": "low" },
+        { "name": "cdx:threat:likelihood", "value": "medium — known CVEs in dependencies are discovered regularly" },
+        { "name": "cdx:threat:impact", "value": "variable — depends on the specific CVE, but native library CVEs can be critical" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-celery-workers, asset-react-frontend, asset-geospatial-libs, asset-duckdb" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 15: 'Audit all third-party packages for known CVEs before adoption'. This is a manual process with no automation." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Enable Dependabot. 2. Add pip-audit to CI. 3. Add npm audit to CI. 4. Monitor native library CVEs. 5. Pin and review dependency versions." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-celery-workers" },
+        { "ref": "asset-react-frontend" },
+        { "ref": "asset-geospatial-libs" },
+        { "ref": "asset-duckdb" }
+      ]
+    },
+    {
+      "bom-ref": "RECON-18",
+      "id": "RECON-18",
+      "source": { "name": "Repository Threat Reconnaissance" },
+      "ratings": [
+        {
+          "severity": "low",
+          "method": "other",
+          "justification": "No secrets management solution is specified beyond 'use environment variables'. For a system with multiple services (API, Martin, Celery, PgBouncer, Redis, Object Storage), environment variables alone are insufficient for production secrets management."
+        }
+      ],
+      "cwes": [798],
+      "description": "No secrets management solution specified beyond 'use env vars'. CODING-CONVENTIONS.md states 'No secrets or credentials in code. Use environment variables or a secrets manager' but no specific secrets manager (HashiCorp Vault, AWS Secrets Manager, Docker secrets) is selected or documented.",
+      "detail": "The system requires credentials for: PostgreSQL/PgBouncer, Redis, Object Storage (S3 keys), potentially CDN configuration. Environment variables provide no encryption at rest, no rotation mechanism, no audit logging, and are visible in process listings and container inspection.",
+      "recommendation": "1. Select a secrets management solution (e.g., Docker secrets for Compose, HashiCorp Vault, or cloud-native secrets manager). 2. Implement secret rotation for database and service credentials. 3. Never log environment variables. 4. Document secrets management in ARCHITECTURE.md.",
+      "properties": [
+        { "name": "cdx:threat:id", "value": "RECON-18" },
+        { "name": "cdx:threat:title", "value": "No secrets management solution specified" },
+        { "name": "cdx:threat:category", "value": "Secrets Management" },
+        { "name": "cdx:threat:severity", "value": "low" },
+        { "name": "cdx:threat:likelihood", "value": "medium — environment variable leakage is common in containerized environments" },
+        { "name": "cdx:threat:impact", "value": "high — credential exposure leads to full system compromise" },
+        { "name": "cdx:threat:affectedAssets", "value": "asset-graphql-api, asset-martin, asset-celery-workers, asset-pgbouncer, asset-redis, asset-object-storage" },
+        { "name": "cdx:threat:existingControls", "value": "CODING-CONVENTIONS.md Section 10: 'No secrets or credentials in code. Use environment variables or a secrets manager'. CODING-CONVENTIONS.md Section 9: 'Structured logging: Never log internal file paths, credentials, or PII'." },
+        { "name": "cdx:threat:recommendedMitigations", "value": "1. Select a secrets manager. 2. Implement secret rotation. 3. Never log env vars. 4. Document secrets management." }
+      ],
+      "affects": [
+        { "ref": "asset-graphql-api" },
+        { "ref": "asset-martin" },
+        { "ref": "asset-celery-workers" },
+        { "ref": "asset-pgbouncer" },
+        { "ref": "asset-redis" },
+        { "ref": "asset-object-storage" }
+      ]
+    }
+  ],
+  "formulation": [
+    {
+      "components": [
+        {
+          "bom-ref": "zone-internet-browser",
+          "type": "platform",
+          "name": "Internet / Browser Zone",
+          "description": "Untrusted zone. End users interact via web browsers. All input from this zone is untrusted.",
+          "properties": [
+            { "name": "cdx:zone:trustLevel", "value": "untrusted" },
+            { "name": "cdx:zone:components", "value": "asset-react-frontend" }
+          ]
+        },
+        {
+          "bom-ref": "zone-dmz-cdn",
+          "type": "platform",
+          "name": "DMZ / CDN Zone",
+          "description": "Edge caching layer between the internet and application services. Serves cached tile requests and static assets.",
+          "properties": [
+            { "name": "cdx:zone:trustLevel", "value": "semi-trusted" },
+            { "name": "cdx:zone:components", "value": "asset-cdn" }
+          ]
+        },
+        {
+          "bom-ref": "zone-application",
+          "type": "platform",
+          "name": "Application Zone",
+          "description": "Application services handling business logic and tile serving. Contains the GraphQL API and Martin tile server.",
+          "properties": [
+            { "name": "cdx:zone:trustLevel", "value": "trusted" },
+            { "name": "cdx:zone:components", "value": "asset-graphql-api, asset-martin, asset-sqlalchemy" }
+          ]
+        },
+        {
+          "bom-ref": "zone-data",
+          "type": "platform",
+          "name": "Data Zone",
+          "description": "Persistent storage layer. Contains PostGIS, Redis, PgBouncer, and Object Storage. Should be the most restricted zone.",
+          "properties": [
+            { "name": "cdx:zone:trustLevel", "value": "trusted — highest protection required" },
+            { "name": "cdx:zone:components", "value": "asset-postgis, asset-pgbouncer, asset-redis, asset-object-storage" }
+          ]
+        },
+        {
+          "bom-ref": "zone-processing",
+          "type": "platform",
+          "name": "Processing Zone",
+          "description": "Background processing workers. Handles untrusted file parsing and spatial computation. Should be isolated from other zones.",
+          "properties": [
+            { "name": "cdx:zone:trustLevel", "value": "semi-trusted — processes untrusted data" },
+            { "name": "cdx:zone:components", "value": "asset-celery-workers, asset-duckdb, asset-geospatial-libs" }
+          ]
+        }
+      ]
+    }
+  ],
+  "annotations": [
+    {
+      "bom-ref": "flow-01",
+      "subjects": ["asset-react-frontend", "asset-cdn"],
+      "text": "FLOW-01: Browser to CDN. Protocol: HTTPS. Data: Tile requests (GET /{layer}/{z}/{x}/{y}), static assets. Sensitivity: Low (public tile data). Direction: Browser -> CDN."
+    },
+    {
+      "bom-ref": "flow-02",
+      "subjects": ["asset-cdn", "asset-martin"],
+      "text": "FLOW-02: CDN to Martin (cache miss). Protocol: HTTP (internal). Data: Tile requests forwarded on cache miss. Sensitivity: Low. Direction: CDN -> Martin."
+    },
+    {
+      "bom-ref": "flow-03",
+      "subjects": ["asset-react-frontend", "asset-graphql-api"],
+      "text": "FLOW-03: Browser to GraphQL API. Protocol: HTTPS. Data: GraphQL queries (dataset metadata, feature queries, spatial filters), GraphQL mutations (file upload via multipart, delete, reproject, simplify, intersect, export). Sensitivity: High (includes file uploads of untrusted geospatial data and all data operations). Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-04",
+      "subjects": ["asset-graphql-api", "asset-pgbouncer"],
+      "text": "FLOW-04: GraphQL API to PgBouncer. Protocol: PostgreSQL wire protocol (unencrypted by default). Data: SQL queries and results (parameterized via SQLAlchemy). Sensitivity: High (geospatial data, metadata). Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-05",
+      "subjects": ["asset-pgbouncer", "asset-postgis"],
+      "text": "FLOW-05: PgBouncer to PostGIS. Protocol: PostgreSQL wire protocol. Data: Multiplexed database connections. Sensitivity: High. Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-06",
+      "subjects": ["asset-martin", "asset-pgbouncer"],
+      "text": "FLOW-06: Martin to PgBouncer/PostGIS. Protocol: PostgreSQL wire protocol. Data: Spatial queries for tile generation (direct read access to all spatial data). Sensitivity: High. Direction: Martin reads from PostGIS."
+    },
+    {
+      "bom-ref": "flow-07",
+      "subjects": ["asset-graphql-api", "asset-redis"],
+      "text": "FLOW-07: GraphQL API to Redis. Protocol: Redis protocol (unencrypted by default). Data: Cached spatial query results, job status lookups. Sensitivity: Medium (cached query results). Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-08",
+      "subjects": ["asset-graphql-api", "asset-celery-workers"],
+      "text": "FLOW-08: GraphQL API to Celery Workers (via Redis broker). Protocol: Redis protocol (task serialization). Data: Task payloads containing file references, processing parameters. Sensitivity: Medium. Direction: API enqueues tasks, workers consume."
+    },
+    {
+      "bom-ref": "flow-09",
+      "subjects": ["asset-celery-workers", "asset-redis"],
+      "text": "FLOW-09: Celery Workers to Redis. Protocol: Redis protocol. Data: Task results, job state updates, broker communication. Sensitivity: Medium. Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-10",
+      "subjects": ["asset-celery-workers", "asset-postgis"],
+      "text": "FLOW-10: Celery Workers to PostGIS (via PgBouncer). Protocol: PostgreSQL wire protocol. Data: Ingested features written to database, spatial processing queries. Sensitivity: High. Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-11",
+      "subjects": ["asset-celery-workers", "asset-object-storage"],
+      "text": "FLOW-11: Celery Workers to Object Storage. Protocol: S3 API (HTTPS) or local filesystem. Data: Raw uploaded files read for processing, GeoParquet exports written. Sensitivity: High (raw untrusted uploads). Direction: Bidirectional."
+    },
+    {
+      "bom-ref": "flow-12",
+      "subjects": ["asset-graphql-api", "asset-object-storage"],
+      "text": "FLOW-12: GraphQL API to Object Storage. Protocol: S3 API (HTTPS) or local filesystem. Data: Raw file uploads stored with provenance metadata. Sensitivity: High. Direction: API writes uploads to storage."
+    },
+    {
+      "bom-ref": "flow-13",
+      "subjects": ["asset-celery-workers", "asset-duckdb"],
+      "text": "FLOW-13: Celery Workers to DuckDB (in-process). Protocol: In-process library calls. Data: GeoParquet files, spatial batch processing, larger-than-memory streaming. Sensitivity: High (processes untrusted uploaded data). Direction: Workers invoke DuckDB for batch operations."
+    },
+    {
+      "bom-ref": "flow-14",
+      "subjects": ["asset-celery-workers", "asset-geospatial-libs"],
+      "text": "FLOW-14: Celery Workers to Native Geospatial Libraries (in-process). Protocol: Python C extension calls. Data: Untrusted geometry data from uploads processed through GEOS (Shapely), GDAL/OGR (Fiona), PROJ (pyproj). Sensitivity: High (untrusted data through native code). Direction: Workers invoke libraries for parsing, validation, reprojection."
+    }
+  ],
+  "extensions": [
+    {
+      "name": "cdx:threatModel:assumptions",
+      "description": "Assumptions and limitations of this threat model — what could not be determined from the repository alone.",
+      "data": [
+        {
+          "id": "ASSUME-01",
+          "assumption": "No implementation code exists. All findings are based on architectural documents, coding conventions, and the initial plan. Actual implementation may address some of these threats.",
+          "impact": "Severity ratings may decrease if implementation includes controls not documented in specs."
+        },
+        {
+          "id": "ASSUME-02",
+          "assumption": "Production deployment architecture is unknown. Only Docker Compose for local development is specified. Cloud provider, network topology, firewall rules, and load balancer configuration are not documented.",
+          "impact": "Network-level threats (RECON-05, RECON-09, RECON-15) may be mitigated by production infrastructure not yet designed."
+        },
+        {
+          "id": "ASSUME-03",
+          "assumption": "The system is assumed to be multi-user based on '10,000 concurrent users' in ARCHITECTURE.md, but no multi-tenancy or user isolation model is defined.",
+          "impact": "If the system is single-user or single-tenant, RECON-01 and RECON-02 severity would decrease but not disappear."
+        },
+        {
+          "id": "ASSUME-04",
+          "assumption": "Data sensitivity classification is unknown. Geospatial polygon data could range from public (USDA CSB) to commercially sensitive (proprietary field boundaries) to personally identifiable (property boundaries).",
+          "impact": "Data protection threats (RECON-12, RECON-14) severity depends on actual data sensitivity."
+        },
+        {
+          "id": "ASSUME-05",
+          "assumption": "CODING-CONVENTIONS.md was retrieved from git history (HEAD) as it is referenced by CLAUDE.md and README.md but may have been removed from the working tree. Its status as an active governing document is assumed but not confirmed.",
+          "impact": "Existing controls cited from CODING-CONVENTIONS.md may not be current."
+        },
+        {
+          "id": "ASSUME-06",
+          "assumption": "ARCHITECTURE.md was retrieved from git history (HEAD) as it has been deleted from the working tree (git status shows 'D ARCHITECTURE.md'). Its contents may be outdated or superseded.",
+          "impact": "Technology choices, library versions, and architectural decisions cited from ARCHITECTURE.md may have changed."
+        },
+        {
+          "id": "ASSUME-07",
+          "assumption": "V1 scope (INITIAL-PLAN.md) explicitly excludes GraphQL, Celery, Redis, Martin, and CDN. However, ARCHITECTURE.md includes them all. Threats are modeled against the full architecture since it represents the intended system.",
+          "impact": "Some threats (RECON-05, RECON-07, RECON-08, RECON-10) apply only to post-V1 components."
+        },
+        {
+          "id": "ASSUME-08",
+          "assumption": "The CDN provider is not selected. CloudFront, Cloudflare, or similar are mentioned as options. CDN-specific security features (WAF, DDoS protection, bot management) are unknown.",
+          "impact": "CDN-level mitigations for RECON-06 and RECON-11 depend on provider selection."
+        },
+        {
+          "id": "ASSUME-09",
+          "assumption": "No CI/CD pipeline configuration was found in the repository. Build, test, and deployment automation are not documented.",
+          "impact": "RECON-17 (dependency scanning) and general security automation depend on CI/CD being configured."
+        }
+      ]
+    }
+  ]
+}
