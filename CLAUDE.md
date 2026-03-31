@@ -21,7 +21,3 @@ Full-stack geospatial platform for ingesting, validating, processing, analyzing,
 - Delete branches after merge
 - Multiple contributors can work in parallel on separate issue branches
 
-## Phases
-1. **Phase 1**: Project scaffold, GeoJSON ingestion, canonical model, basic validation, map rendering
-2. **Phase 2**: PostGIS integration, reprojection, simplification, filtering, export
-3. **Phase 3**: CSB dataset ingestion, large dataset handling, vector tiles, background processing, advanced analysis
