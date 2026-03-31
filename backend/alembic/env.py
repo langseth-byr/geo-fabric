@@ -6,10 +6,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
+from app import models  # noqa: F401 — registers models with Base.metadata
 from app.config import settings
 from app.db import Base
-from app import models  # noqa: F401 — registers models with Base.metadata
 
 config = context.config
 
@@ -19,6 +18,15 @@ if config.config_file_name is not None:
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 target_metadata = Base.metadata
+
+MANAGED_TABLES = set(target_metadata.tables.keys())
+
+
+def include_object(object, name, type_, reflected, compare_to):  # noqa: A002
+    """Only manage tables defined in our models — ignore PostGIS internals."""
+    if type_ == "table" and reflected and name not in MANAGED_TABLES:
+        return False
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -32,16 +40,6 @@ def run_migrations_offline() -> None:
 
     with context.begin_transaction():
         context.run_migrations()
-
-
-MANAGED_TABLES = set(target_metadata.tables.keys())
-
-
-def include_object(object, name, type_, reflected, compare_to):  # noqa: A002
-    """Only manage tables defined in our models — ignore PostGIS internals."""
-    if type_ == "table" and reflected and name not in MANAGED_TABLES:
-        return False
-    return True
 
 
 def do_run_migrations(connection: Connection) -> None:
