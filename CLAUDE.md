@@ -18,9 +18,10 @@ The first milestone is one working loop:
 ## Key Documents
 
 - [INITIAL-PLAN.md](INITIAL-PLAN.md) for scope and milestones
-- [ARCHITECTURE.md](ARCHITECTURE.md) for the lean V1 stack
-- [CODING-CONVENTIONS.md](CODING-CONVENTIONS.md) for engineering rules
+- [ARCHITECTURE.md](ARCHITECTURE.md) for the lean V1 stack and security architecture
+- [CODING-CONVENTIONS.md](CODING-CONVENTIONS.md) for engineering rules and security controls
 - [REQUIREMENT-TEMPLATE.md](REQUIREMENT-TEMPLATE.md) for issue writing
+- [Threat Model](docs/threat-model/THREAT-MODEL-REPORT.md) for security analysis
 
 ## Working Assumptions
 
@@ -28,6 +29,9 @@ The first milestone is one working loop:
 - GeoJSON comes before broader format support
 - Shapefile is the next format after GeoJSON
 - Provenance, validation, and safe ingestion are non-negotiable
+- Security controls from the threat model are integrated into the architecture
+  and coding conventions — reference CT-XX identifiers when writing security
+  notes in issues
 - Background jobs, vector tiles, and more infrastructure are deferred until
   proven necessary
 
