@@ -13,6 +13,10 @@ Full-stack geospatial platform for ingesting, validating, processing, analyzing,
 2. Use Docker Compose for local services (PostGIS, Redis)
 3. Frontend and backend live in separate directories within the monorepo
 
+## Shorthand Commands
+
+- **"new issue: <description>"** — Create a new GitHub issue only. Do **not** create a branch, submit a PR, or merge anything. Just file the issue using the template below and return the issue URL.
+
 ## Issue Creation
 
 When creating new GitHub issues, **always** use the structure defined in [REQUIREMENT-TEMPLATE.md](REQUIREMENT-TEMPLATE.md). Every issue must include:
